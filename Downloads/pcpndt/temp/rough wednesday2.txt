@@ -1,0 +1,1647 @@
+package in.gov.serviceplus.pcpndt.service;
+
+import in.gov.serviceplus.pcpndt.dto.FormHRecordDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+@Service
+public class FormHService {
+
+    private static final Logger logger = LoggerFactory.getLogger(FormHService.class);
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public FormHRecordDTO findByReferenceNumber(String referenceNumber) {
+        // First, let's debug what's actually in the tables
+        debugTableData(referenceNumber);
+
+        String sql = """
+            SELECT 
+                init.appl_id as applicationId,
+                init.submission_location as authorityName,
+                init.submission_date as registrationDate,
+                CONCAT(
+                    init.applicant_name,
+                    '\\nMobile: ', COALESCE(init.mobile_no, 'N/A'),
+                    '\\nEmail: ', COALESCE(init.emails, 'N/A')
+                ) as applicantDetails,
+                init.name_of_centre as centreName,
+                COALESCE(
+                    'Advisory Committee: ' || exec.taskname || ' on ' || exec.executiontime,
+                    'Pending Advisory Review'
+                ) as advisorySummary,
+                CASE
+                    WHEN filt.status = 'Approve' THEN 'GRANTED - Order issued on ' || COALESCE(filt.executiontime, '')
+                    WHEN filt.status = 'Reject' THEN 'REJECTED - Order issued on ' || COALESCE(filt.executiontime, '')
+                    ELSE 'UNDER PROCESS'
+                END as applicationOutcome,
+                COALESCE(
+                    -- Try multiple ways to extract registration number from JSON
+                    CASE 
+                        WHEN filt.officialform IS NOT NULL THEN 
+                            COALESCE(
+                                filt.officialform::json->>'143895',
+                                'Not yet assigned'
+                            )
+                        ELSE 'Not yet assigned'
+                    END,
+                    'Not yet assigned'
+                ) as registrationNumber,
+                CASE
+                    WHEN init.application_type LIKE '%Renewal%' THEN 'Renewal applied on: ' || init.submission_date
+                    ELSE 'Initial Registration'
+                END as renewalDetails,
+                init.appl_ref_no as fileNumber,
+                init.application_type as additionalInfo
+            FROM pcpndt_initiated_data init
+            LEFT JOIN (
+                SELECT e1.application_id, e1.taskname, e1.status, e1.executiontime
+                FROM pcpndt_execution_data e1
+                INNER JOIN (
+                    SELECT application_id, MAX(executiontime) as max_time
+                    FROM pcpndt_execution_data
+                    WHERE taskname LIKE '%Advisory%' OR taskname LIKE '%Committee%' OR taskname LIKE '%DAA%'
+                    GROUP BY application_id
+                ) e2 ON e1.application_id = e2.application_id AND e1.executiontime = e2.max_time
+            ) exec ON init.appl_id = exec.application_id
+            LEFT JOIN (
+                SELECT f1.application_id, f1.status, f1.executiontime, f1.officialform
+                FROM pcpndt_filtered_execution f1
+                INNER JOIN (
+                    SELECT application_id, MAX(executiontime) as max_time
+                    FROM pcpndt_filtered_execution
+                    GROUP BY application_id
+                ) f2 ON f1.application_id = f2.application_id AND f1.executiontime = f2.max_time
+            ) filt ON init.appl_id = filt.application_id
+            WHERE init.appl_ref_no = ?
+            """;
+
+        try {
+            logger.info("Executing main query for reference: {}", referenceNumber);
+
+            List<FormHRecordDTO> results = jdbcTemplate.query(sql, new Object[]{referenceNumber}, (rs, rowNum) -> {
+                // Debug each field as we process it
+                System.out.println("=== PROCESSING ROW ===");
+                try {
+                    Long applicationId = rs.getLong("applicationId");
+                    System.out.println("applicationId: " + applicationId);
+
+                    String authorityName = rs.getString("authorityName");
+                    System.out.println("authorityName: " + authorityName);
+
+                    String registrationDate = rs.getString("registrationDate");
+                    System.out.println("registrationDate: " + registrationDate);
+
+                    return new FormHRecordDTO(
+                            applicationId,
+                            authorityName,
+                            registrationDate,
+                            rs.getString("applicantDetails"),
+                            rs.getString("centreName"),
+                            rs.getString("advisorySummary"),
+                            rs.getString("applicationOutcome"),
+                            rs.getString("registrationNumber"),
+                            rs.getString("renewalDetails"),
+                            rs.getString("fileNumber"),
+                            rs.getString("additionalInfo")
+                    );
+                } catch (Exception e) {
+                    System.out.println("Error processing row: " + e.getMessage());
+                    e.printStackTrace();
+                    return null;
+                }
+            });
+
+            logger.info("Main query completed. Results found: {}", results.size());
+
+            // Filter out null results and return first valid one
+            List<FormHRecordDTO> validResults = results.stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            return validResults.isEmpty() ? null : validResults.get(0);
+
+        } catch (Exception e) {
+            logger.error("Error in main query for reference {}: {}", referenceNumber, e.getMessage(), e);
+            System.out.println("MAIN QUERY ERROR: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Database error while searching application", e);
+        }
+    }
+
+    private void debugTableData(String referenceNumber) {
+        try {
+            System.out.println("=== DEBUGGING TABLE DATA FOR: " + referenceNumber + " ===");
+
+            // Check if record exists in initiated_data
+            String checkInitSql = "SELECT appl_id, appl_ref_no, applicant_name FROM pcpndt_initiated_data WHERE appl_ref_no = ?";
+            jdbcTemplate.query(checkInitSql, new Object[]{referenceNumber}, (rs, rowNum) -> {
+                System.out.println("INITIATED DATA - appl_id: " + rs.getString("appl_id") +
+                        ", appl_ref_no: " + rs.getString("appl_ref_no") +
+                        ", applicant_name: " + rs.getString("applicant_name"));
+                return null;
+            });
+
+            // Check execution_data
+            String checkExecSql = "SELECT application_id, taskname FROM pcpndt_execution_data WHERE application_id IN (SELECT appl_id FROM pcpndt_initiated_data WHERE appl_ref_no = ?)";
+            jdbcTemplate.query(checkExecSql, new Object[]{referenceNumber}, (rs, rowNum) -> {
+                System.out.println("EXECUTION DATA - application_id: " + rs.getString("application_id") +
+                        ", taskname: " + rs.getString("taskname"));
+                return null;
+            });
+
+            // Check filtered_execution
+            String checkFiltSql = "SELECT application_id, status, officialform FROM pcpndt_filtered_execution WHERE application_id IN (SELECT appl_id FROM pcpndt_initiated_data WHERE appl_ref_no = ?)";
+            jdbcTemplate.query(checkFiltSql, new Object[]{referenceNumber}, (rs, rowNum) -> {
+                System.out.println("FILTERED EXECUTION - application_id: " + rs.getString("application_id") +
+                        ", status: " + rs.getString("status") +
+                        ", officialform: " + rs.getString("officialform"));
+                return null;
+            });
+
+            System.out.println("=== END DEBUGGING ===");
+
+        } catch (Exception e) {
+            System.out.println("Debug query failed: " + e.getMessage());
+        }
+    }
+}
+
+package in.gov.serviceplus.pcpndt.service;
+
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import in.gov.serviceplus.pcpndt.dto.response.FormHDataDto;
+import in.gov.serviceplus.pcpndt.entity.ApplicationExecution;
+import in.gov.serviceplus.pcpndt.entity.ApplicationMaster;
+import in.gov.serviceplus.pcpndt.repository.ApplicationExecutionRepository;
+import in.gov.serviceplus.pcpndt.repository.ApplicationMasterRepository;
+import in.gov.serviceplus.pcpndt.service.exception.ApplicationNotFoundException;
+import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@Transactional
+public class FormHDataService {
+    private final ApplicationMasterRepository applicationMasterRepository;
+    private final ApplicationExecutionRepository applicationExecutionRepository;
+    private final ObjectMapper objectMapper;
+
+    // Field mappings from JSON structures
+    private static final String APPLICANT_NAME_FIELD = "48664";
+    private static final String APPLICANT_ADDRESS_FIELD = "48673";
+    private static final String PHONE_NUMBER_FIELD = "48680";
+    private static final String EMAIL_FIELD = "48681";
+    private static final String FACILITY_NAME_FIELD = "48676";
+    private static final String FACILITY_ADDRESS_FIELD = "48678";
+    private static final String FACILITY_TYPE_FIELD = "48674";
+    private static final String DISTRICT_FIELD = "48675";
+
+    // Official form field mappings
+    private static final String OUTCOME_FIELD = "136514";
+    private static final String EXPIRY_DATE_FIELD = "143878";
+    private static final String REGISTRATION_NUMBER_FIELD = "143895";
+    private static final String REMARKS_FIELD = "136516";
+
+    public FormHDataService(ApplicationMasterRepository applicationMasterRepository,
+                            ApplicationExecutionRepository applicationExecutionRepository) {
+        this.applicationMasterRepository = applicationMasterRepository;
+        this.applicationExecutionRepository = applicationExecutionRepository;
+        this.objectMapper = new ObjectMapper();
+    }
+
+    /**
+     * Get Form H data for a given application reference number
+     */
+    public FormHDataDto getFormHData(String applRefNo) {
+        // Step 1: Find application master data
+        ApplicationMaster applicationMaster = applicationMasterRepository.findByApplRefNo(applRefNo)
+                .orElseThrow(() -> new ApplicationNotFoundException(
+                        "Application not found with reference number: " + applRefNo));
+
+        // Step 2: Get application ID to search execution data
+        String applicationId = applicationMaster.getApplId();
+
+        // Step 3: Create Form H DTO and populate basic data
+        FormHDataDto formHData = new FormHDataDto();
+
+        // Step 4: Populate basic data from application_master
+        populateBasicData(formHData, applicationMaster);
+
+        // Step 5: Extract and populate data from initiated_data JSON
+        populateFromInitiatedData(formHData, applicationMaster.getInitiatedData());
+
+        // Step 6: Extract and populate data from execution officialform JSON
+        populateFromOfficialForm(formHData, applicationId);
+
+        return formHData;
+    }
+
+    /**
+     * Populate basic data from ApplicationMaster entity
+     */
+    private void populateBasicData(FormHDataDto formHData, ApplicationMaster applicationMaster) {
+        // 1. Serial Number - simple increment (you can enhance this later)
+        formHData.setSerialNumber(1);
+
+        // 2. File number (appl_ref_no)
+        if (applicationMaster.getApplRefNo() != null) {
+            formHData.setFileNumber(applicationMaster.getApplRefNo());
+        }
+
+        // 3. Date of receipt (submission_date)
+        if (applicationMaster.getSubmissionDate() != null) {
+            formHData.setReceiptDate(applicationMaster.getSubmissionDate());
+        }
+    }
+
+    /**
+     * Extract and populate data from initiated_data JSON column
+     */
+    private void populateFromInitiatedData(FormHDataDto formHData, String initiatedDataJson) {
+        if (initiatedDataJson == null || initiatedDataJson.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            JsonNode rootNode = objectMapper.readTree(initiatedDataJson);
+            JsonNode applInfo = rootNode.path("appl_info");
+            JsonNode formAttributes = rootNode.path("application_form_attributes");
+
+            // Extract from application_form_attributes
+            if (formAttributes.isObject()) {
+                // 4. Applicant Details
+                if (formAttributes.has(APPLICANT_NAME_FIELD)) {
+                    formHData.setApplicantName(formAttributes.get(APPLICANT_NAME_FIELD).asText());
+                }
+                if (formAttributes.has(APPLICANT_ADDRESS_FIELD)) {
+                    formHData.setApplicantAddress(formAttributes.get(APPLICANT_ADDRESS_FIELD).asText());
+                }
+                if (formAttributes.has(PHONE_NUMBER_FIELD)) {
+                    formHData.setPhoneNumber(formAttributes.get(PHONE_NUMBER_FIELD).asText());
+                }
+                if (formAttributes.has(EMAIL_FIELD)) {
+                    formHData.setEmail(formAttributes.get(EMAIL_FIELD).asText());
+                }
+
+                // 5. Facility Details
+                if (formAttributes.has(FACILITY_NAME_FIELD)) {
+                    formHData.setFacilityName(formAttributes.get(FACILITY_NAME_FIELD).asText());
+                }
+                if (formAttributes.has(FACILITY_ADDRESS_FIELD)) {
+                    formHData.setFacilityAddress(formAttributes.get(FACILITY_ADDRESS_FIELD).asText());
+                }
+                if (formAttributes.has(FACILITY_TYPE_FIELD)) {
+                    String facilityType = formAttributes.get(FACILITY_TYPE_FIELD).asText();
+                    formHData.setFacilityType(extractValueAfterTilde(facilityType));
+                }
+                if (formAttributes.has(DISTRICT_FIELD)) {
+                    String district = formAttributes.get(DISTRICT_FIELD).asText();
+                    formHData.setDistrict(extractValueAfterTilde(district));
+                }
+            }
+
+            // Additional applicant details from appl_info
+            if (applInfo.isObject()) {
+                if (applInfo.has("user_name")) {
+                    formHData.setApplicantDetails("Applied by: " + applInfo.get("user_name").asText());
+                }
+            }
+
+        } catch (Exception e) {
+            // Log error but don't throw - we want to return whatever data we can extract
+            System.err.println("Error parsing initiated_data JSON: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Extract and populate data from officialform JSON in execution data
+     */
+    private void populateFromOfficialForm(FormHDataDto formHData, String applicationId) {
+        // Find execution records for this application
+        List<ApplicationExecution> executions = applicationExecutionRepository.findByApplicationId(applicationId);
+
+        if (executions.isEmpty()) {
+            return;
+        }
+
+        // Look for Certificate Generation task and extract officialform data
+        for (ApplicationExecution execution : executions) {
+            if (execution.getOfficialForm() != null && !execution.getOfficialForm().trim().isEmpty()) {
+                try {
+                    JsonNode officialForm = objectMapper.readTree(execution.getOfficialForm());
+
+                    // 7. Outcome of application
+                    if (officialForm.has(OUTCOME_FIELD)) {
+                        String outcomeValue = officialForm.get(OUTCOME_FIELD).asText();
+                        formHData.setOutcome(extractOutcomeStatus(outcomeValue));
+                        formHData.setFormType(extractFormType(outcomeValue));
+                    }
+
+                    // 8. Registration number and expiry date
+                    if (officialForm.has(REGISTRATION_NUMBER_FIELD)) {
+                        String regNumber = officialForm.get(REGISTRATION_NUMBER_FIELD).asText();
+                        if (!regNumber.trim().isEmpty()) {
+                            formHData.setRegistrationNumber(regNumber);
+                        }
+                    }
+
+                    if (officialForm.has(EXPIRY_DATE_FIELD)) {
+                        String expiryDate = officialForm.get(EXPIRY_DATE_FIELD).asText();
+                        if (!expiryDate.trim().isEmpty()) {
+                            formHData.setExpiryDate(expiryDate);
+                        }
+                    }
+
+                    // Order date from execution record
+                    if (execution.getExecutionTime() != null) {
+                        formHData.setOrderDate(execution.getExecutionTime());
+                    }
+
+                    // Additional info from remarks
+                    if (officialForm.has(REMARKS_FIELD)) {
+                        String remarks = officialForm.get(REMARKS_FIELD).asText();
+                        if (!remarks.trim().isEmpty()) {
+                            formHData.setAdditionalInfo(remarks);
+                        }
+                    }
+
+                    // If we found relevant data, break out of loop
+                    if (formHData.getOutcome() != null && !"NA".equals(formHData.getOutcome())) {
+                        break;
+                    }
+
+                } catch (Exception e) {
+                    // Log error but continue processing
+                    System.err.println("Error parsing officialform JSON: " + e.getMessage());
+                }
+            }
+        }
+
+        // If no outcome found in officialform, check task status
+        if ("NA".equals(formHData.getOutcome())) {
+            determineOutcomeFromTasks(formHData, executions);
+        }
+    }
+
+    /**
+     * Determine outcome from task names and statuses
+     */
+    private void determineOutcomeFromTasks(FormHDataDto formHData, List<ApplicationExecution> executions) {
+        for (ApplicationExecution execution : executions) {
+            String taskName = execution.getTaskName();
+            String status = execution.getStatus();
+
+            if ("Certificate Generation By DAA".equals(taskName)) {
+                if ("Approve".equalsIgnoreCase(status)) {
+                    formHData.setOutcome("Granted");
+                    formHData.setFormType("Form B");
+                } else if ("Reject".equalsIgnoreCase(status)) {
+                    formHData.setOutcome("Rejected");
+                    formHData.setFormType("Form C");
+                }
+
+                if (execution.getExecutionTime() != null) {
+                    formHData.setOrderDate(execution.getExecutionTime());
+                }
+                break;
+            }
+        }
+    }
+
+    /**
+     * Extract value after tilde (e.g., "4~Ultrasound Clinic" → "Ultrasound Clinic")
+     */
+    private String extractValueAfterTilde(String value) {
+        if (value == null) return "NA";
+        int tildeIndex = value.indexOf('~');
+        if (tildeIndex != -1 && tildeIndex + 1 < value.length()) {
+            return value.substring(tildeIndex + 1).trim();
+        }
+        return value;
+    }
+
+    /**
+     * Extract outcome status from officialform value (e.g., "10~Reject" → "Rejected")
+     */
+    private String extractOutcomeStatus(String outcomeValue) {
+        if (outcomeValue == null) return "NA";
+
+        String status = extractValueAfterTilde(outcomeValue);
+        if ("Reject".equalsIgnoreCase(status)) {
+            return "Rejected";
+        } else if ("Approve".equalsIgnoreCase(status)) {
+            return "Granted";
+        }
+        return status;
+    }
+
+    /**
+     * Extract form type from outcome value
+     */
+    private String extractFormType(String outcomeValue) {
+        if (outcomeValue == null) return "NA";
+
+        String status = extractValueAfterTilde(outcomeValue);
+        if ("Reject".equalsIgnoreCase(status)) {
+            return "Form C";
+        } else if ("Approve".equalsIgnoreCase(status)) {
+            return "Form B";
+        }
+        return "NA";
+    }
+
+    /**
+     * Get Form H data with custom serial number
+     */
+    public FormHDataDto getFormHData(String applRefNo, Integer serialNumber) {
+        FormHDataDto formHData = getFormHData(applRefNo);
+        formHData.setSerialNumber(serialNumber);
+        return formHData;
+    }
+}
+package in.gov.serviceplus.pcpndt.service;
+
+
+import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+import in.gov.serviceplus.pcpndt.repository.ApplicationMasterRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+public class FilterService {
+    @Autowired
+    private ApplicationMasterRepository applicationMasterRepository;
+
+    public List<String> getAllServices() {
+        return List.of("PC PNDT");
+    }
+
+    public List<String> getAllDistricts() {
+        List<String> allSubmissionLocations = applicationMasterRepository.findAllDistinctSubmissionLocations();
+
+        return allSubmissionLocations.stream()
+                .map(this::extractDistrictFromSubmissionLocation)
+                .filter(district -> district != null && !district.trim().isEmpty())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    public String extractDistrictFromSubmissionLocation(String submissionLocation) {
+        if (submissionLocation == null || submissionLocation.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            if (submissionLocation.contains("DISTRICT -")) {
+                String[] parts = submissionLocation.split("DISTRICT -");
+                if (parts.length > 1) {
+                    String districtPart = parts[1].trim();
+                    if (districtPart.contains(")")) {
+                        return districtPart.split("\\)")[0].trim();
+                    }
+                    return districtPart;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            System.err.println("Error parsing district from: " + submissionLocation);
+            return null;
+        }
+    }
+
+    public List<PcpndtInitiatedData> getApplicationsByDistrict(String district) {
+        List<String> allLocations = applicationMasterRepository.findAllDistinctSubmissionLocations();
+
+        List<String> matchingLocations = allLocations.stream()
+                .filter(location -> {
+                    String extractedDistrict = extractDistrictFromSubmissionLocation(location);
+                    return extractedDistrict != null && extractedDistrict.equalsIgnoreCase(district);
+                })
+                .collect(Collectors.toList());
+
+
+        return applicationMasterRepository.findBySubmissionLocations(matchingLocations);
+    }
+
+    public List<PcpndtInitiatedData> getApplicationsByServiceAndDistrict(String service, String district) {
+        return getApplicationsByDistrict(district);
+    }
+
+    public ApplicationMasterRepository getApplicationMasterRepository() {
+        return applicationMasterRepository;
+    }
+
+    // NEW METHODS FOR CASCADING DROPDOWNS
+
+    public List<String> getCentreNamesByDistrict(String district) {
+        return applicationMasterRepository.findCentreNamesByDistrict(district);
+    }
+
+    public List<String> getApplRefNosByCentreName(String centreName) {
+        return applicationMasterRepository.findApplRefNosByCentreName(centreName);
+    }
+
+    public Optional<PcpndtInitiatedData> getCompleteApplicationByRefNo(String applRefNo) {
+        return applicationMasterRepository.findCompleteApplicationByRefNo(applRefNo);
+    }
+
+    // Helper method to get submission location by district
+    public String getSubmissionLocationByDistrict(String district) {
+        List<String> allLocations = applicationMasterRepository.findAllDistinctSubmissionLocations();
+        return allLocations.stream()
+                .filter(location -> {
+                    String extractedDistrict = extractDistrictFromSubmissionLocation(location);
+                    return extractedDistrict != null && extractedDistrict.equalsIgnoreCase(district);
+                })
+                .findFirst()
+                .orElse(null);
+    }
+}
+
+// package in.gov.serviceplus.pcpndt.service;
+////
+////import in.gov.serviceplus.pcpndt.entity.PcpndtExecutionData;
+////import in.gov.serviceplus.pcpndt.entity.PcpndtFilteredExecution;
+////import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+////import in.gov.serviceplus.pcpndt.repository.PcpndtExecutionDataRepository;
+////import in.gov.serviceplus.pcpndt.repository.PcpndtFilteredExecutionRepository;
+////import in.gov.serviceplus.pcpndt.repository.PcpndtInitiatedDataRepository;
+////import jakarta.persistence.EntityManager;
+////import jakarta.persistence.PersistenceContext;
+////import org.springframework.beans.factory.annotation.Autowired;
+////import org.springframework.stereotype.Service;
+////
+////import java.util.HashMap;
+////import java.util.List;
+////import java.util.Map;
+////
+////////package in.gov.serviceplus.pcpndt.service;
+////////
+////////import in.gov.serviceplus.pcpndt.entity.Application;
+////////import in.gov.serviceplus.pcpndt.entity.ExecutionHistory;
+////////import in.gov.serviceplus.pcpndt.entity.FilteredExecution;
+////////import in.gov.serviceplus.pcpndt.repository.ApplicationRepository;
+////////import in.gov.serviceplus.pcpndt.repository.ExecutionHistoryRepository;
+////////import in.gov.serviceplus.pcpndt.repository.FilteredExecutionRepository;
+////////import org.springframework.beans.factory.annotation.Autowired;
+////////import org.springframework.stereotype.Service;
+////////
+////////import java.util.HashMap;
+////////import java.util.List;
+////////import java.util.Map;
+////////
+////////@Service
+////////public class ApplicationService {
+////////
+////////    @Autowired
+////////    private ApplicationRepository applicationRepository;
+////////
+////////    @Autowired
+////////    private ExecutionHistoryRepository executionHistoryRepository;
+////////
+////////    @Autowired
+////////    private FilteredExecutionRepository filteredExecutionRepository;
+////////
+////////    public List<Application> getAllApplications() {
+////////        return applicationRepository.findAll();
+////////    }
+////////
+////////    public Application getApplicationById(Long id) {
+////////        return applicationRepository.findById(id).orElse(null);
+////////    }
+////////
+////////    public List<ExecutionHistory> getExecutionHistory(Long applicationId) {
+////////        return executionHistoryRepository.findByApplicationId(applicationId);
+////////    }
+////////
+////////    public List<FilteredExecution> getFilteredExecutions(Long applicationId) {
+////////        return filteredExecutionRepository.findByApplicationId(applicationId);
+////////    }
+////////
+////////    public Map<String, Object> getApplicationDetails(Long applicationId) {
+////////        Map<String, Object> details = new HashMap<>();
+////////
+////////        Application application = getApplicationById(applicationId);
+////////        details.put("application", application);
+////////
+////////        if (application != null) {
+////////            details.put("executionHistory", getExecutionHistory(applicationId));
+////////            details.put("filteredExecutions", getFilteredExecutions(applicationId));
+////////        }
+////////
+////////        return details;
+////////    }
+////////}
+//////
+//////import in.gov.serviceplus.pcpndt.entity.PcpndtExecutionData;
+//////import in.gov.serviceplus.pcpndt.entity.PcpndtFilteredExecution;
+//////import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+//////import in.gov.serviceplus.pcpndt.repository.PcpndtExecutionDataRepository;
+//////import in.gov.serviceplus.pcpndt.repository.PcpndtFilteredExecutionRepository;
+//////import in.gov.serviceplus.pcpndt.repository.PcpndtInitiatedDataRepository;
+//////import org.springframework.beans.factory.annotation.Autowired;
+//////import org.springframework.stereotype.Service;
+//////
+//////import java.util.HashMap;
+//////import java.util.List;
+//////import java.util.Map;
+//////
+//////@Service
+//////public class ApplicationService {
+//////
+//////    @Autowired
+//////    private PcpndtInitiatedDataRepository initiatedDataRepository;
+//////
+//////    @Autowired
+//////    private PcpndtExecutionDataRepository executionDataRepository;
+//////
+//////    @Autowired
+//////    private PcpndtFilteredExecutionRepository filteredExecutionRepository;
+//////
+//////    public List<PcpndtInitiatedData> getAllApplications() {
+//////        // Try native query first to ensure we get data
+//////        List<PcpndtInitiatedData> apps = initiatedDataRepository.findAllNative();
+//////        System.out.println("Native query found: " + apps.size() + " applications");
+//////
+//////        if (apps.isEmpty()) {
+//////            // Fallback to JPA method
+//////            apps = initiatedDataRepository.findAll();
+//////            System.out.println("JPA method found: " + apps.size() + " applications");
+//////        }
+//////
+//////        return apps;
+//////    }
+//////
+//////    public PcpndtInitiatedData getApplicationById(Long id) {
+//////        return initiatedDataRepository.findById(id).orElse(null);
+//////    }
+//////
+//////    public List<PcpndtExecutionData> getExecutionHistory(Long applicationId) {
+//////        return executionDataRepository.findByApplication_id(applicationId);
+//////    }
+//////
+//////    public List<PcpndtFilteredExecution> getFilteredExecutions(Long applicationId) {
+//////        return filteredExecutionRepository.findByApplication_id(applicationId);
+//////    }
+//////
+//////    public Map<String, Object> getApplicationDetails(Long applicationId) {
+//////        Map<String, Object> details = new HashMap<>();
+//////
+//////        PcpndtInitiatedData application = getApplicationById(applicationId);
+//////        details.put("application", application);
+//////
+//////        if (application != null) {
+//////            details.put("executionHistory", getExecutionHistory(applicationId));
+//////            details.put("filteredExecutions", getFilteredExecutions(applicationId));
+//////        }
+//////
+//////        return details;
+//////    }
+//////}
+////
+////@Service
+////public class ApplicationService {
+////
+////    @Autowired
+////    private PcpndtInitiatedDataRepository initiatedDataRepository;
+////
+////    @Autowired
+////    private PcpndtExecutionDataRepository executionDataRepository;
+////
+////    @Autowired
+////    private PcpndtFilteredExecutionRepository filteredExecutionRepository;
+////
+////    public List<PcpndtInitiatedData> getAllApplications() {
+////        // Try native query first to ensure we get data
+////        List<PcpndtInitiatedData> apps = initiatedDataRepository.findAllNative();
+////        System.out.println("Native query found: " + apps.size() + " applications");
+////
+////        if (apps.isEmpty()) {
+////            // Fallback to JPA method
+////            apps = initiatedDataRepository.findAll();
+////            System.out.println("JPA method found: " + apps.size() + " applications");
+////        }
+////
+////        return apps;
+////    }
+////
+////    public PcpndtInitiatedData getApplicationById(Long id) {
+////        return initiatedDataRepository.findById(id).orElse(null);
+////    }
+////
+////    public List<PcpndtExecutionData> getExecutionHistory(Long applicationId) {
+////        return executionDataRepository.findByApplicationId(applicationId);
+////    }
+////
+////    public List<PcpndtFilteredExecution> getFilteredExecutions(Long applicationId) {
+////        return filteredExecutionRepository.findByApplicationId(applicationId);
+////    }
+////
+//
+//import in.gov.serviceplus.pcpndt.entity.PcpndtExecutionData;
+//import in.gov.serviceplus.pcpndt.entity.PcpndtFilteredExecution;
+//import in.gov.serviceplus.pcpndt.repository.PcpndtInitiatedDataRepository;
+//import jakarta.persistence.EntityManager;
+//import jakarta.persistence.PersistenceContext;
+//import org.springframework.beans.factory.annotation.Autowired;
+//import org.springframework.stereotype.Service;
+//
+//import java.util.List;
+//
+//////    public List<PcpndtExecutionData> getExecutionHistory(Long applicationId) {
+//////        // Use the method with exact field name
+//////        return executionDataRepository.findByApplication_id(applicationId);
+//////    }
+//////
+//////    public List<PcpndtFilteredExecution> getFilteredExecutions(Long applicationId) {
+//////        // Use the method with exact field name
+//////        return filteredExecutionRepository.findByApplication_id(applicationId);
+//////    }
+////
+////    @PersistenceContext
+////    private EntityManager entityManager;
+////
+////    public List<PcpndtExecutionData> getExecutionHistory(Long applicationId) {
+////        // Use EntityManager for manual query
+////        String jpql = "SELECT e FROM PcpndtExecutionData e WHERE e.application_id = :appId";
+////        return entityManager.createQuery(jpql, PcpndtExecutionData.class)
+////                .setParameter("appId", applicationId)
+////                .getResultList();
+////    }
+////
+////    public Map<String, Object> getApplicationDetails(Long applicationId) {
+////        Map<String, Object> details = new HashMap<>();
+////
+////        PcpndtInitiatedData application = getApplicationById(applicationId);
+////        details.put("application", application);
+////
+////        if (application != null) {
+////            details.put("executionHistory", getExecutionHistory(applicationId));
+////            details.put("filteredExecutions", getFilteredExecutions(applicationId));
+////        }
+////
+////        return details;
+////    }
+////
+////}
+//
+//@Service
+//public class ApplicationService {
+//
+//    @Autowired
+//    private PcpndtInitiatedDataRepository initiatedDataRepository;
+//
+//    @PersistenceContext
+//    private EntityManager entityManager;
+//
+//    // REMOVE this - we don't need the repository if using EntityManager
+//    // @Autowired
+//    // private PcpndtExecutionDataRepository executionDataRepository;
+//
+//    // KEEP ONLY THIS VERSION
+//    public List<PcpndtExecutionData> getExecutionHistory(Long applicationId) {
+//        String jpql = "SELECT e FROM PcpndtExecutionData e WHERE e.application_id = :appId";
+//        return entityManager.createQuery(jpql, PcpndtExecutionData.class)
+//                .setParameter("appId", applicationId)
+//                .getResultList();
+//    }
+//
+//    public List<PcpndtFilteredExecution> getFilteredExecutions(Long applicationId) {
+//        String jpql = "SELECT f FROM PcpndtFilteredExecution f WHERE f.application_id = :appId";
+//        return entityManager.createQuery(jpql, PcpndtFilteredExecution.class)
+//                .setParameter("appId", applicationId)
+//                .getResultList();
+//    }
+//
+//    // ... rest of your methods
+//}
+//
+//
+
+package in.gov.serviceplus.pcpndt.service;
+
+import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+import in.gov.serviceplus.pcpndt.entity.PcpndtExecutionData;
+import in.gov.serviceplus.pcpndt.entity.PcpndtFilteredExecution;
+import in.gov.serviceplus.pcpndt.repository.PcpndtInitiatedDataRepository;
+import in.gov.serviceplus.pcpndt.repository.PcpndtExecutionDataRepository;
+import in.gov.serviceplus.pcpndt.repository.PcpndtFilteredExecutionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class ApplicationService {
+
+    @Autowired
+    private PcpndtInitiatedDataRepository initiatedDataRepository;
+
+    @Autowired
+    private PcpndtExecutionDataRepository executionDataRepository;
+
+    @Autowired
+    private PcpndtFilteredExecutionRepository filteredExecutionRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    // Add this missing method
+    public List<PcpndtInitiatedData> getAllApplications() {
+        // Try native query first to ensure we get data
+        List<PcpndtInitiatedData> apps = initiatedDataRepository.findAllNative();
+        System.out.println("Native query found: " + apps.size() + " applications");
+
+        if (apps.isEmpty()) {
+            // Fallback to JPA method
+            apps = initiatedDataRepository.findAll();
+            System.out.println("JPA method found: " + apps.size() + " applications");
+        }
+
+        return apps;
+    }
+
+    public PcpndtInitiatedData getApplicationById(Long id) {
+        return initiatedDataRepository.findById(id).orElse(null);
+    }
+
+    public List<PcpndtExecutionData> getExecutionHistory(Long applicationId) {
+        // Use EntityManager for manual query to avoid method naming issues
+        String jpql = "SELECT e FROM PcpndtExecutionData e WHERE e.application_id = :appId";
+        return entityManager.createQuery(jpql, PcpndtExecutionData.class)
+                .setParameter("appId", applicationId)
+                .getResultList();
+    }
+
+    public List<PcpndtFilteredExecution> getFilteredExecutions(Long applicationId) {
+        // Use EntityManager for manual query to avoid method naming issues
+        String jpql = "SELECT f FROM PcpndtFilteredExecution f WHERE f.application_id = :appId";
+        return entityManager.createQuery(jpql, PcpndtFilteredExecution.class)
+                .setParameter("appId", applicationId)
+                .getResultList();
+    }
+
+    public Map<String, Object> getApplicationDetails(Long applicationId) {
+        Map<String, Object> details = new HashMap<>();
+
+        PcpndtInitiatedData application = getApplicationById(applicationId);
+        details.put("application", application);
+
+        if (application != null) {
+            details.put("executionHistory", getExecutionHistory(applicationId));
+            details.put("filteredExecutions", getFilteredExecutions(applicationId));
+        }
+
+        return details;
+    }
+}
+package in.gov.serviceplus.pcpndt.service;
+
+
+import in.gov.serviceplus.pcpndt.dto.response.ApplicationSearchResult;
+import in.gov.serviceplus.pcpndt.entity.ApplicationExecution;
+import in.gov.serviceplus.pcpndt.entity.ApplicationFilteredExecution;
+import in.gov.serviceplus.pcpndt.entity.ApplicationMaster;
+import in.gov.serviceplus.pcpndt.repository.ApplicationExecutionRepository;
+import in.gov.serviceplus.pcpndt.repository.ApplicationFilteredExecutionRepository;
+import in.gov.serviceplus.pcpndt.repository.ApplicationMasterRepository;
+import in.gov.serviceplus.pcpndt.service.exception.ApplicationNotFoundException;
+import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@Transactional
+public class ApplicationSearchService {
+    private final ApplicationMasterRepository applicationMasterRepository;
+    private final ApplicationExecutionRepository applicationExecutionRepository;
+    private final ApplicationFilteredExecutionRepository applicationFilteredExecutionRepository;
+
+    // Constructor injection (recommended)
+    public ApplicationSearchService(
+            ApplicationMasterRepository applicationMasterRepository,
+            ApplicationExecutionRepository applicationExecutionRepository,
+            ApplicationFilteredExecutionRepository applicationFilteredExecutionRepository) {
+        this.applicationMasterRepository = applicationMasterRepository;
+        this.applicationExecutionRepository = applicationExecutionRepository;
+        this.applicationFilteredExecutionRepository = applicationFilteredExecutionRepository;
+    }
+
+    /**
+     * Search application by appl_ref_no and get all related data
+     */
+    public ApplicationSearchResult searchByApplRefNo(String applRefNo) {
+        // Step 1: Find application master data by appl_ref_no
+        ApplicationMaster applicationMaster = applicationMasterRepository.findByApplRefNo(applRefNo)
+                .orElseThrow(() -> new ApplicationNotFoundException(
+                        "Application not found with reference number: " + applRefNo));
+
+        // Step 2: Get appl_id (which is same as application_id in other tables)
+        String applicationId = applicationMaster.getApplId();
+
+        // Step 3: Fetch execution data from both execution tables
+        List<ApplicationExecution> executionHistory = applicationExecutionRepository.findByApplicationId(applicationId);
+        List<ApplicationFilteredExecution> filteredExecutions = applicationFilteredExecutionRepository.findByApplicationId(applicationId);
+
+        // Step 4: Create and return combined result
+        return new ApplicationSearchResult(applicationMaster, executionHistory, filteredExecutions);
+    }
+
+    /**
+     * Search application by appl_id
+     */
+    public ApplicationSearchResult searchByApplId(String applId) {
+        ApplicationMaster applicationMaster = applicationMasterRepository.findByApplId(applId)
+                .orElseThrow(() -> new ApplicationNotFoundException(
+                        "Application not found with ID: " + applId));
+
+        List<ApplicationExecution> executionHistory = applicationExecutionRepository.findByApplicationId(applId);
+        List<ApplicationFilteredExecution> filteredExecutions = applicationFilteredExecutionRepository.findByApplicationId(applId);
+
+        return new ApplicationSearchResult(applicationMaster, executionHistory, filteredExecutions);
+    }
+
+    /**
+     * Get only basic application info (without execution data)
+     */
+    public ApplicationMaster getApplicationBasicInfo(String applRefNo) {
+        return applicationMasterRepository.findByApplRefNo(applRefNo)
+                .orElseThrow(() -> new ApplicationNotFoundException(
+                        "Application not found with reference number: " + applRefNo));
+    }
+}
+
+
+Now I understand the complete picture! You have multiple services using different approaches, and there's a naming inconsistency issue.
+Step 9: Analysis of Current Service Layer
+
+I can see you have:
+
+    FilterService - Uses ApplicationMasterRepository but works with PcpndtInitiatedData entity
+
+    FormHDataService - Uses ApplicationMasterRepository and ApplicationExecutionRepository
+
+    FormHService - Uses direct JDBC template
+
+    ApplicationService - Uses PcpndtInitiatedDataRepository and other repositories
+
+    ApplicationSearchService - Uses ApplicationMasterRepository and execution repositories
+
+Step 10: The Core Issue
+
+The main problem is naming inconsistency:
+
+    Repository named ApplicationMasterRepository but works with PcpndtInitiatedData entity
+
+    This creates confusion and potential errors
+
+Step 11: Proposed Solution
+
+Option A: Rename repositories to match entities (Recommended)
+Option B: Create new repositories and gradually migrate services
+
+I recommend Option A for clarity. Let me propose the renaming:
+
+Current Repository → Suggested Name
+
+    ApplicationMasterRepository → PcpndtInitiatedDataRepository
+
+    ApplicationExecutionRepository → PcpndtExecutionDataRepository
+
+    ApplicationFilteredExecutionRepository → PcpndtFilteredExecutionRepository
+
+Step 12: Questions Before Proceeding
+
+Question 1: Do you agree with renaming the repositories to match the entity names for better clarity?
+
+Question 2: Should we:
+
+    Rename existing repositories and update all services, OR
+
+    Keep existing names but create the new DropdownRepository separately?
+
+Question 3: For the cascading dropdown functionality, do you want it integrated into existing FilterService or as a separate service?
+
+Please let me know your preference so I can provide the exact code changes n
+
+
+
+Perfect! Let's proceed with the safe approach.
+Step 17: Create DropdownRepository
+
+I'll create a new DropdownRepository specifically for cascading dropdown functionality:
+java
+
+package in.gov.serviceplus.pcpndt.repository;
+
+import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface DropdownRepository extends JpaRepository<PcpndtInitiatedData, Long> {
+    
+    // Get distinct submission locations for district extraction
+    @Query("SELECT DISTINCT p.submission_location FROM PcpndtInitiatedData p WHERE p.submission_location IS NOT NULL")
+    List<String> findAllDistinctSubmissionLocations();
+    
+    // Get centre names by district (filtered from submission_location)
+    @Query("SELECT DISTINCT p.name_of_centre FROM PcpndtInitiatedData p WHERE p.submission_location LIKE %:district% AND p.name_of_centre IS NOT NULL ORDER BY p.name_of_centre")
+    List<String> findCentreNamesByDistrict(@Param("district") String district);
+    
+    // Get application reference numbers by centre name
+    @Query("SELECT p.appl_ref_no FROM PcpndtInitiatedData p WHERE p.name_of_centre = :centreName AND p.appl_ref_no IS NOT NULL ORDER BY p.appl_ref_no")
+    List<String> findApplRefNosByCentreName(@Param("centreName") String centreName);
+    
+    // Get complete application details by reference number
+    @Query("SELECT p FROM PcpndtInitiatedData p WHERE p.appl_ref_no = :applRefNo")
+    Optional<PcpndtInitiatedData> findCompleteApplicationByRefNo(@Param("applRefNo") String applRefNo);
+    
+    // Find applications by submission locations (for existing functionality)
+    @Query("SELECT p FROM PcpndtInitiatedData p WHERE p.submission_location IN :submissionLocations")
+    List<PcpndtInitiatedData> findBySubmissionLocations(@Param("submissionLocations") List<String> submissionLocations);
+}
+
+Step 18: Update FilterService
+
+Now I'll update only the FilterService to use the new DropdownRepository:
+java
+
+package in.gov.serviceplus.pcpndt.service;
+
+import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+import in.gov.serviceplus.pcpndt.repository.DropdownRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+public class FilterService {
+    
+    // REPLACE: ApplicationMasterRepository with DropdownRepository
+    @Autowired
+    private DropdownRepository dropdownRepository;
+
+    public List<String> getAllServices() {
+        return List.of("PC PNDT");
+    }
+
+    public List<String> getAllDistricts() {
+        // UPDATE: Use dropdownRepository instead of applicationMasterRepository
+        List<String> allSubmissionLocations = dropdownRepository.findAllDistinctSubmissionLocations();
+
+        return allSubmissionLocations.stream()
+                .map(this::extractDistrictFromSubmissionLocation)
+                .filter(district -> district != null && !district.trim().isEmpty())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    public String extractDistrictFromSubmissionLocation(String submissionLocation) {
+        if (submissionLocation == null || submissionLocation.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            if (submissionLocation.contains("DISTRICT -")) {
+                String[] parts = submissionLocation.split("DISTRICT -");
+                if (parts.length > 1) {
+                    String districtPart = parts[1].trim();
+                    if (districtPart.contains(")")) {
+                        return districtPart.split("\\)")[0].trim();
+                    }
+                    return districtPart;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            System.err.println("Error parsing district from: " + submissionLocation);
+            return null;
+        }
+    }
+
+    public List<PcpndtInitiatedData> getApplicationsByDistrict(String district) {
+        // UPDATE: Use dropdownRepository
+        List<String> allLocations = dropdownRepository.findAllDistinctSubmissionLocations();
+
+        List<String> matchingLocations = allLocations.stream()
+                .filter(location -> {
+                    String extractedDistrict = extractDistrictFromSubmissionLocation(location);
+                    return extractedDistrict != null && extractedDistrict.equalsIgnoreCase(district);
+                })
+                .collect(Collectors.toList());
+
+        // UPDATE: Use dropdownRepository
+        return dropdownRepository.findBySubmissionLocations(matchingLocations);
+    }
+
+    public List<PcpndtInitiatedData> getApplicationsByServiceAndDistrict(String service, String district) {
+        return getApplicationsByDistrict(district);
+    }
+
+    // UPDATE: Change method name and return type
+    public DropdownRepository getDropdownRepository() {
+        return dropdownRepository;
+    }
+
+    // NEW METHODS FOR CASCADING DROPDOWNS - Use dropdownRepository
+
+    public List<String> getCentreNamesByDistrict(String district) {
+        return dropdownRepository.findCentreNamesByDistrict(district);
+    }
+
+    public List<String> getApplRefNosByCentreName(String centreName) {
+        return dropdownRepository.findApplRefNosByCentreName(centreName);
+    }
+
+    public Optional<PcpndtInitiatedData> getCompleteApplicationByRefNo(String applRefNo) {
+        return dropdownRepository.findCompleteApplicationByRefNo(applRefNo);
+    }
+
+    // Helper method to get submission location by district
+    public String getSubmissionLocationByDistrict(String district) {
+        // UPDATE: Use dropdownRepository
+        List<String> allLocations = dropdownRepository.findAllDistinctSubmissionLocations();
+        return allLocations.stream()
+                .filter(location -> {
+                    String extractedDistrict = extractDistrictFromSubmissionLocation(location);
+                    return extractedDistrict != null && extractedDistrict.equalsIgnoreCase(district);
+                })
+                .findFirst()
+                .orElse(null);
+    }
+}
+
+Step 19: What This Achieves
+
+✅ No breaking changes - All other services continue using existing repositories
+✅ Cascading dropdown functionality - New repository handles dropdown-specific queries
+✅ Clean separation - Dropdown logic isolated in its own repository
+✅ Safe migration - Only one service updated
+Step 20: Next Steps
+
+After implementing these changes:
+
+    Test the cascading dropdown endpoints we created earlier
+
+    Verify existing functionality still works
+
+    Gradually migrate other services if desired
+
+Question: Should I also update the FilterDataController to ensure all endpoints work with the new repository, or do you want to test the current changes first?
+
+The controller should work as-is since we're only changing the service implementation, not the method signatures.
+
+package in.gov.serviceplus.pcpndt.service;
+
+import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+import in.gov.serviceplus.pcpndt.repository.DropdownRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+public class FilterService {
+    
+    // REPLACE: ApplicationMasterRepository with DropdownRepository
+    @Autowired
+    private DropdownRepository dropdownRepository;
+
+    public List<String> getAllServices() {
+        return List.of("PC PNDT");
+    }
+
+    public List<String> getAllDistricts() {
+        // UPDATE: Use dropdownRepository instead of applicationMasterRepository
+        List<String> allSubmissionLocations = dropdownRepository.findAllDistinctSubmissionLocations();
+
+        return allSubmissionLocations.stream()
+                .map(this::extractDistrictFromSubmissionLocation)
+                .filter(district -> district != null && !district.trim().isEmpty())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    public String extractDistrictFromSubmissionLocation(String submissionLocation) {
+        if (submissionLocation == null || submissionLocation.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            if (submissionLocation.contains("DISTRICT -")) {
+                String[] parts = submissionLocation.split("DISTRICT -");
+                if (parts.length > 1) {
+                    String districtPart = parts[1].trim();
+                    if (districtPart.contains(")")) {
+                        return districtPart.split("\\)")[0].trim();
+                    }
+                    return districtPart;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            System.err.println("Error parsing district from: " + submissionLocation);
+            return null;
+        }
+    }
+
+    public List<PcpndtInitiatedData> getApplicationsByDistrict(String district) {
+        // UPDATE: Use dropdownRepository
+        List<String> allLocations = dropdownRepository.findAllDistinctSubmissionLocations();
+
+        List<String> matchingLocations = allLocations.stream()
+                .filter(location -> {
+                    String extractedDistrict = extractDistrictFromSubmissionLocation(location);
+                    return extractedDistrict != null && extractedDistrict.equalsIgnoreCase(district);
+                })
+                .collect(Collectors.toList());
+
+        // UPDATE: Use dropdownRepository
+        return dropdownRepository.findBySubmissionLocations(matchingLocations);
+    }
+
+    public List<PcpndtInitiatedData> getApplicationsByServiceAndDistrict(String service, String district) {
+        return getApplicationsByDistrict(district);
+    }
+
+    // UPDATE: Change method name and return type
+    public DropdownRepository getDropdownRepository() {
+        return dropdownRepository;
+    }
+
+    // NEW METHODS FOR CASCADING DROPDOWNS - Use dropdownRepository
+
+    public List<String> getCentreNamesByDistrict(String district) {
+        return dropdownRepository.findCentreNamesByDistrict(district);
+    }
+
+    public List<String> getApplRefNosByCentreName(String centreName) {
+        return dropdownRepository.findApplRefNosByCentreName(centreName);
+    }
+
+    public Optional<PcpndtInitiatedData> getCompleteApplicationByRefNo(String applRefNo) {
+        return dropdownRepository.findCompleteApplicationByRefNo(applRefNo);
+    }
+
+    // Helper method to get submission location by district
+    public String getSubmissionLocationByDistrict(String district) {
+        // UPDATE: Use dropdownRepository
+        List<String> allLocations = dropdownRepository.findAllDistinctSubmissionLocations();
+        return allLocations.stream()
+                .filter(location -> {
+                    String extractedDistrict = extractDistrictFromSubmissionLocation(location);
+                    return extractedDistrict != null && extractedDistrict.equalsIgnoreCase(district);
+                })
+                .findFirst()
+                .orElse(null);
+    }
+}
+
+-----------------------
+
+package in.gov.serviceplus.pcpndt.controllers;
+
+import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+import in.gov.serviceplus.pcpndt.service.FilterService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/filters")
+@CrossOrigin(origins = "*")
+public class FilterDataController {
+    @Autowired
+    private FilterService filterService;
+
+    // Your existing endpoints...
+    @GetMapping("/services")
+    public ResponseEntity<List<String>> getAllServices() {
+        try {
+            List<String> services = filterService.getAllServices();
+            return ResponseEntity.ok(services);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/districts")
+    public ResponseEntity<List<String>> getAllDistricts() {
+        try {
+            List<String> districts = filterService.getAllDistricts();
+            return ResponseEntity.ok(districts);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/applications")
+    public ResponseEntity<List<PcpndtInitiatedData>> getApplicationsByFilter(
+            @RequestParam String service,
+            @RequestParam String district) {
+        try {
+            List<PcpndtInitiatedData> applications = filterService.getApplicationsByServiceAndDistrict(service, district);
+            return ResponseEntity.ok(applications);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/debug-districts")
+    public ResponseEntity<Map<String, Object>> debugDistrictExtraction() {
+        try {
+            // FIX: Use getDropdownRepository() instead of getApplicationMasterRepository()
+            List<String> submissionLocations = filterService.getDropdownRepository().findAllDistinctSubmissionLocations();
+            
+            Map<String, String> extractionResults = new HashMap<>();
+            for (String location : submissionLocations) {
+                String extractedDistrict = filterService.extractDistrictFromSubmissionLocation(location);
+                extractionResults.put(location, extractedDistrict);
+            }
+            List<String> finalDistricts = filterService.getAllDistricts();
+            Map<String, Object> response = new HashMap<>();
+            response.put("submissionLocations", submissionLocations);
+            response.put("extractionMapping", extractionResults);
+            response.put("finalDistricts", finalDistricts);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+
+    // NEW ENDPOINTS FOR CASCADING DROPDOWNS
+    
+    /**
+     * Get centre names by district
+     * GET /api/filters/centres?district=KHORDHA
+     */
+    @GetMapping("/centres")
+    public ResponseEntity<List<String>> getCentresByDistrict(@RequestParam String district) {
+        try {
+            List<String> centres = filterService.getCentreNamesByDistrict(district);
+            return ResponseEntity.ok(centres);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * Get application reference numbers by centre name
+     * GET /api/filters/appl-ref-nos?centreName=SPARSH HOSPITALS AND CRITICAL CARE PRIVATE LIMITED
+     */
+    @GetMapping("/appl-ref-nos")
+    public ResponseEntity<List<String>> getApplRefNosByCentre(@RequestParam String centreName) {
+        try {
+            List<String> applRefNos = filterService.getApplRefNosByCentreName(centreName);
+            return ResponseEntity.ok(applRefNos);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * Get complete application details by reference number
+     * GET /api/filters/application-details?applRefNo=PCPNDT/2021/00499
+     */
+    @GetMapping("/application-details")
+    public ResponseEntity<?> getApplicationDetails(@RequestParam String applRefNo) {
+        try {
+            Optional<PcpndtInitiatedData> application = filterService.getCompleteApplicationByRefNo(applRefNo);
+            if (application.isPresent()) {
+                return ResponseEntity.ok(application.get());
+            } else {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Application not found for reference number: " + applRefNo);
+                return ResponseEntity.badRequest().body(error);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Error retrieving application: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+    
+    /**
+     * Test endpoint for cascading dropdown data
+     * GET /api/filters/test-cascading
+     */
+    @GetMapping("/test-cascading")
+    public ResponseEntity<Map<String, Object>> testCascadingData() {
+        try {
+            Map<String, Object> response = new HashMap<>();
+            
+            // Get all districts
+            List<String> districts = filterService.getAllDistricts();
+            response.put("districts", districts);
+            
+            // For each district, get centres
+            Map<String, List<String>> districtCentres = new HashMap<>();
+            for (String district : districts) {
+                List<String> centres = filterService.getCentreNamesByDistrict(district);
+                districtCentres.put(district, centres);
+            }
+            response.put("districtCentres", districtCentres);
+            
+            // For sample centres, get application reference numbers
+            Map<String, List<String>> centreApplications = new HashMap<>();
+            for (String district : districts) {
+                List<String> centres = filterService.getCentreNamesByDistrict(district);
+                if (!centres.isEmpty()) {
+                    String sampleCentre = centres.get(0);
+                    List<String> applRefNos = filterService.getApplRefNosByCentreName(sampleCentre);
+                    centreApplications.put(sampleCentre, applRefNos);
+                    break; // Just show one example
+                }
+            }
+            response.put("sampleCentreApplications", centreApplications);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+}
+
+List<String> submissionLocations = filterService.getApplicationMasterRepository().findAllDistinctSubmissionLocations();
+List<String> submissionLocations = filterService.getDropdownRepository().findAllDistinctSubmissionLocations();
+
+# Get all districts
+GET http://localhost:8080/api/filters/districts
+
+# Get centres by district
+GET http://localhost:8080/api/filters/centres?district=KHORDHA
+
+# Get application reference numbers by centre
+GET http://localhost:8080/api/filters/appl-ref-nos?centreName=SPARSH HOSPITALS AND CRITICAL CARE PRIVATE LIMITED
+
+# Test all cascading data
+GET http://localhost:8080/api/filters/test-cascading
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

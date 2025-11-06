@@ -1,0 +1,1218 @@
+// DOM Elements - Add centre select
+const centreSelect = document.getElementById('centreSelect');
+
+// Update current selections
+let currentSelections = {
+    service: '',
+    district: '',
+    centre: '',  // Add this
+    application: ''
+};
+
+// Update event listeners
+function setupEventListeners() {
+    serviceSelect.addEventListener('change', onServiceChange);
+    districtSelect.addEventListener('change', onDistrictChange);
+    centreSelect.addEventListener('change', onCentreChange);  // Add this
+    applicationSelect.addEventListener('change', onApplicationChange);
+    searchBtn.addEventListener('click', generateFormH);
+    newSearchBtn.addEventListener('click', resetSearch);
+    printBtn.addEventListener('click', () => window.print());
+}
+
+// When district changes, load centres
+async function onDistrictChange() {
+    const district = districtSelect.value;
+    currentSelections.district = district;
+
+    if (!district) {
+        centreSelect.disabled = true;
+        centreSelect.innerHTML = '<option value="">Select district first</option>';
+        applicationSelect.disabled = true;
+        applicationSelect.innerHTML = '<option value="">Select centre first</option>';
+        searchBtn.disabled = true;
+        return;
+    }
+
+    centreSelect.disabled = true;
+    centreSelect.innerHTML = '<option value="">Loading centres...</option>';
+    applicationSelect.disabled = true;
+    applicationSelect.innerHTML = '<option value="">Select centre first</option>';
+    searchBtn.disabled = true;
+
+    try {
+        const response = await fetch(`/api/filters/centres?service=${currentSelections.service}&district=${district}`);
+        const centres = await response.json();
+
+        centreSelect.innerHTML = '<option value="">Select Centre</option>';
+        centres.forEach(centre => {
+            const option = document.createElement('option');
+            option.value = centre;
+            option.textContent = centre;
+            centreSelect.appendChild(option);
+        });
+        centreSelect.disabled = false;
+    } catch (error) {
+        console.error('Error loading centres:', error);
+        centreSelect.innerHTML = '<option value="">Error loading centres</option>';
+    }
+}
+
+// When centre changes, load applications
+async function onCentreChange() {
+    const centre = centreSelect.value;
+    currentSelections.centre = centre;
+
+    if (!centre) {
+        applicationSelect.disabled = true;
+        applicationSelect.innerHTML = '<option value="">Select centre first</option>';
+        searchBtn.disabled = true;
+        return;
+    }
+
+    applicationSelect.disabled = true;
+    applicationSelect.innerHTML = '<option value="">Loading applications...</option>';
+    searchBtn.disabled = true;
+
+    try {
+        const response = await fetch(`/api/filters/applications?service=${currentSelections.service}&district=${currentSelections.district}&centre=${centre}`);
+        const applications = await response.json();
+
+        applicationSelect.innerHTML = '<option value="">Select Application</option>';
+        applications.forEach(app => {
+            const option = document.createElement('option');
+            option.value = app.appl_ref_no;
+            option.textContent = app.appl_ref_no;
+            option.setAttribute('data-app', JSON.stringify(app));
+            applicationSelect.appendChild(option);
+        });
+        applicationSelect.disabled = false;
+    } catch (error) {
+        console.error('Error loading applications:', error);
+        applicationSelect.innerHTML = '<option value="">Error loading applications</option>';
+    }
+}
+
+// Update reset function
+function resetSearch() {
+    serviceSelect.value = '';
+    districtSelect.value = '';
+    centreSelect.value = '';
+    applicationSelect.value = '';
+    districtSelect.disabled = true;
+    centreSelect.disabled = true;
+    applicationSelect.disabled = true;
+    searchBtn.disabled = true;
+    resultsSection.style.display = 'none';
+    currentSelections = { service: '', district: '', centre: '', application: '' };
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form H - Alternative View</title>
+    
+    <!-- Include common styles from fragment -->
+    <th:block th:insert="fragments/styles :: common-styles" />
+    
+    <!-- Page-specific styles only -->
+    <style>
+        .alternative-layout {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .card-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .card-body {
+            padding: 30px;
+        }
+
+        .btn-modern {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-modern:disabled {
+            background: #bdc3c7;
+            transform: none;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="alternative-layout">
+    <div class="card-container">
+        <div class="card-header">
+            <h1 style="margin: 0; font-size: 28px;">Form H Report Generator</h1>
+            <p style="margin: 5px 0 0 0; opacity: 0.8;">Alternative View - PCPNDT Applications</p>
+        </div>
+        
+        <div class="card-body">
+            <!-- Search Section -->
+            <div class="search-section no-print">
+                <h3 style="color: #2c3e50; margin-bottom: 25px;">Search Applications</h3>
+
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="serviceSelect">Service Name</label>
+                        <select id="serviceSelect">
+                            <option value="">Loading services...</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="districtSelect">District</label>
+                        <select id="districtSelect" disabled>
+                            <option value="">Select service first</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="centreSelect">Centre Name</label>
+                        <select id="centreSelect" disabled>
+                            <option value="">Select district first</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="applicationSelect">Application Reference Number</label>
+                        <select id="applicationSelect" disabled>
+                            <option value="">Select centre first</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="searchBtn" class="btn-modern" disabled>
+                    <i class="fas fa-search"></i> Generate Form H
+                </button>
+                <span id="loadingText" class="loading" style="display: none;">
+                    <i class="fas fa-spinner fa-spin"></i> Loading Form H...
+                </span>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="results-section">
+                <div class="results-header no-print">
+                    <h3 style="color: #2c3e50; margin: 0;">Generated Form H Report</h3>
+                    <div>
+                        <button id="newSearchBtn" class="btn-modern" style="background: linear-gradient(135deg, #27ae60, #229954); margin-right: 10px;">
+                            <i class="fas fa-plus"></i> New Search
+                        </button>
+                        <button id="printBtn" class="btn-modern">
+                            <i class="fas fa-print"></i> Print Form
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form H Report will be dynamically inserted here -->
+                <div id="formHReport"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const serviceSelect = document.getElementById('serviceSelect');
+        const districtSelect = document.getElementById('districtSelect');
+        const centreSelect = document.getElementById('centreSelect');
+        const applicationSelect = document.getElementById('applicationSelect');
+        const searchBtn = document.getElementById('searchBtn');
+        const loadingText = document.getElementById('loadingText');
+        const resultsSection = document.getElementById('resultsSection');
+        const formHReport = document.getElementById('formHReport');
+        const newSearchBtn = document.getElementById('newSearchBtn');
+        const printBtn = document.getElementById('printBtn');
+
+        // Current selections
+        let currentSelections = {
+            service: '',
+            district: '',
+            centre: '',
+            application: ''
+        };
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadServices();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            serviceSelect.addEventListener('change', onServiceChange);
+            districtSelect.addEventListener('change', onDistrictChange);
+            centreSelect.addEventListener('change', onCentreChange); // ADD THIS
+            applicationSelect.addEventListener('change', onApplicationChange);
+            searchBtn.addEventListener('click', generateFormH);
+            newSearchBtn.addEventListener('click', resetSearch);
+            printBtn.addEventListener('click', () => window.print());
+        }
+
+        // Load services from API
+        async function loadServices() {
+            try {
+                const response = await fetch('/api/filters/services');
+                const services = await response.json();
+
+                serviceSelect.innerHTML = '<option value="">Select Service</option>';
+                services.forEach(service => {
+                    const option = document.createElement('option');
+                    option.value = service;
+                    option.textContent = service;
+                    serviceSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading services:', error);
+                serviceSelect.innerHTML = '<option value="">Error loading services</option>';
+            }
+        }
+
+        // When service changes, load districts
+        async function onServiceChange() {
+            const service = serviceSelect.value;
+            currentSelections.service = service;
+
+            if (!service) {
+                resetDistrict();
+                resetCentre();
+                resetApplication();
+                return;
+            }
+
+            districtSelect.disabled = true;
+            districtSelect.innerHTML = '<option value="">Loading districts...</option>';
+            resetCentre();
+            resetApplication();
+
+            try {
+                const response = await fetch(`/api/filters/districts`);
+                const districts = await response.json();
+
+                districtSelect.innerHTML = '<option value="">Select District</option>';
+                districts.forEach(district => {
+                    const option = document.createElement('option');
+                    option.value = district;
+                    option.textContent = district;
+                    districtSelect.appendChild(option);
+                });
+                districtSelect.disabled = false;
+            } catch (error) {
+                console.error('Error loading districts:', error);
+                districtSelect.innerHTML = '<option value="">Error loading districts</option>';
+            }
+        }
+
+        // When district changes, load centres
+        async function onDistrictChange() {
+            const district = districtSelect.value;
+            currentSelections.district = district;
+
+            if (!district) {
+                resetCentre();
+                resetApplication();
+                return;
+            }
+
+            centreSelect.disabled = true;
+            centreSelect.innerHTML = '<option value="">Loading centres...</option>';
+            resetApplication();
+
+            try {
+                const response = await fetch(`/api/filters/centres?service=${currentSelections.service}&district=${district}`);
+                const centres = await response.json();
+
+                centreSelect.innerHTML = '<option value="">Select Centre</option>';
+                centres.forEach(centre => {
+                    const option = document.createElement('option');
+                    option.value = centre;
+                    option.textContent = centre;
+                    centreSelect.appendChild(option);
+                });
+                centreSelect.disabled = false;
+            } catch (error) {
+                console.error('Error loading centres:', error);
+                centreSelect.innerHTML = '<option value="">Error loading centres</option>';
+            }
+        }
+
+        // When centre changes, load applications
+        async function onCentreChange() {
+            const centre = centreSelect.value;
+            currentSelections.centre = centre;
+
+            if (!centre) {
+                resetApplication();
+                return;
+            }
+
+            applicationSelect.disabled = true;
+            applicationSelect.innerHTML = '<option value="">Loading applications...</option>';
+            searchBtn.disabled = true;
+
+            try {
+                const response = await fetch(`/api/filters/applications?service=${currentSelections.service}&district=${currentSelections.district}&centre=${centre}`);
+                const applications = await response.json();
+
+                applicationSelect.innerHTML = '<option value="">Select Application</option>';
+                applications.forEach(app => {
+                    const option = document.createElement('option');
+                    option.value = app.appl_ref_no;
+                    option.textContent = app.appl_ref_no;
+                    option.setAttribute('data-app', JSON.stringify(app));
+                    applicationSelect.appendChild(option);
+                });
+                applicationSelect.disabled = false;
+            } catch (error) {
+                console.error('Error loading applications:', error);
+                applicationSelect.innerHTML = '<option value="">Error loading applications</option>';
+            }
+        }
+
+        // When application changes, enable search button
+        function onApplicationChange() {
+            const application = applicationSelect.value;
+            currentSelections.application = application;
+            searchBtn.disabled = !application;
+        }
+
+        // Helper functions to reset dropdowns
+        function resetDistrict() {
+            districtSelect.disabled = true;
+            districtSelect.innerHTML = '<option value="">Select service first</option>';
+        }
+
+        function resetCentre() {
+            centreSelect.disabled = true;
+            centreSelect.innerHTML = '<option value="">Select district first</option>';
+        }
+
+        function resetApplication() {
+            applicationSelect.disabled = true;
+            applicationSelect.innerHTML = '<option value="">Select centre first</option>';
+            searchBtn.disabled = true;
+        }
+
+        // Keep your existing generateFormH() and displayFormH() functions
+        // Generate Form H report - DYNAMIC VERSION
+        async function generateFormH() {
+            if (!currentSelections.application) return;
+
+            loadingText.style.display = 'inline';
+            searchBtn.disabled = true;
+
+            try {
+                const response = await fetch(`/form-h/api/data?applRefNo=${currentSelections.application}`);
+                const formData = await response.json();
+
+                displayFormH(formData);
+                resultsSection.style.display = 'block';
+                resultsSection.scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                console.error('Error generating form:', error);
+                alert('Error generating Form H report');
+            } finally {
+                loadingText.style.display = 'none';
+                searchBtn.disabled = false;
+            }
+        }
+
+        // Reset search form
+        function resetSearch() {
+            serviceSelect.value = '';
+            districtSelect.value = '';
+            centreSelect.value = '';
+            applicationSelect.value = '';
+            resetDistrict();
+            resetCentre();
+            resetApplication();
+            resultsSection.style.display = 'none';
+            currentSelections = { service: '', district: '', centre: '', application: '' };
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Your existing displayFormH() function remains the same
+        function displayFormH(formData) {
+            // ... keep your existing displayFormH implementation
+        }
+    </script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</body>
+</html>
+
+
+
+package in.gov.serviceplus.pcpndt.service;
+
+import in.gov.serviceplus.pcpndt.entity.ApplicationMaster;
+import in.gov.serviceplus.pcpndt.repository.ApplicationMasterRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class FilterService {
+    @Autowired
+    private ApplicationMasterRepository applicationMasterRepository;
+
+    public List<String> getAllServices() {
+        return List.of("PC PNDT");
+    }
+
+    public List<String> getAllDistricts() {
+        List<String> allSubmissionLocations = applicationMasterRepository.findAllDistinctSubmissionLocations();
+
+        return allSubmissionLocations.stream()
+                .map(this::extractDistrictFromSubmissionLocation)
+                .filter(district -> district != null && !district.trim().isEmpty())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    public String extractDistrictFromSubmissionLocation(String submissionLocation) {
+        if (submissionLocation == null || submissionLocation.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            if (submissionLocation.contains("DISTRICT -")) {
+                String[] parts = submissionLocation.split("DISTRICT -");
+                if (parts.length > 1) {
+                    String districtPart = parts[1].trim();
+                    if (districtPart.contains(")")) {
+                        return districtPart.split("\\)")[0].trim();
+                    }
+                    return districtPart;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            System.err.println("Error parsing district from: " + submissionLocation);
+            return null;
+        }
+    }
+
+    // FIXED: Return type changed to ApplicationMaster
+    public List<ApplicationMaster> getApplicationsByDistrict(String district) {
+        List<String> allLocations = applicationMasterRepository.findAllDistinctSubmissionLocations();
+
+        List<String> matchingLocations = allLocations.stream()
+                .filter(location -> {
+                    String extractedDistrict = extractDistrictFromSubmissionLocation(location);
+                    return extractedDistrict != null && extractedDistrict.equalsIgnoreCase(district);
+                })
+                .collect(Collectors.toList());
+
+        return applicationMasterRepository.findBySubmissionLocations(matchingLocations);
+    }
+
+    // FIXED: Return type changed to ApplicationMaster
+    public List<ApplicationMaster> getApplicationsByServiceAndDistrict(String service, String district) {
+        return getApplicationsByDistrict(district);
+    }
+
+    // FIXED: Use the corrected repository method
+    public List<String> getCentresByServiceAndDistrict(String service, String district) {
+        if (district == null || district.trim().isEmpty()) {
+            return List.of();
+        }
+        
+        try {
+            // Convert district to the pattern used in submission_location
+            String districtPattern = "DISTRICT - " + district;
+            
+            System.out.println("Searching for centres with district pattern: " + districtPattern);
+            
+            List<String> centres = applicationMasterRepository.findDistinctNameOfCentreBySubmissionLocationContaining(districtPattern);
+            
+            System.out.println("Found " + centres.size() + " centres for district: " + district);
+            
+            return centres;
+        } catch (Exception e) {
+            System.err.println("Error getting centres for district: " + district);
+            e.printStackTrace();
+            return List.of();
+        }
+    }
+
+    public ApplicationMasterRepository getApplicationMasterRepository() {
+        return applicationMasterRepository;
+    }
+}
+
+GET http://localhost:8080/api/filters/applications?service=PC+PNDT&district=MAYURBHANJ
+
+
+package in.gov.serviceplus.pcpndt.services;
+
+import in.gov.serviceplus.pcpndt.entities.PcpndtInitiatedData;
+import in.gov.serviceplus.pcpndt.repositories.ApplicationMasterRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class FilterService {
+
+    @Autowired
+    private ApplicationMasterRepository applicationMasterRepository;
+
+    // Get all available services
+    public List<String> getAllServices() {
+        return List.of("PC PNDT");
+    }
+
+    // Extract unique districts from submission_location
+    public List<String> getAllDistricts() {
+        List<String> allSubmissionLocations = applicationMasterRepository.findAllDistinctSubmissionLocations();
+        
+        return allSubmissionLocations.stream()
+                .map(this::extractDistrictFromSubmissionLocation)
+                .filter(district -> district != null && !district.trim().isEmpty())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    // Parse district from submission_location format
+    private String extractDistrictFromSubmissionLocation(String submissionLocation) {
+        if (submissionLocation == null || submissionLocation.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            // Pattern: "Office of the Chief District Medical Officer( DISTRICT - MAYURBHANJ )"
+            if (submissionLocation.contains("DISTRICT -")) {
+                String[] parts = submissionLocation.split("DISTRICT -");
+                if (parts.length > 1) {
+                    String districtPart = parts[1].trim();
+                    // Remove closing parenthesis and any extra text
+                    if (districtPart.contains(")")) {
+                        return districtPart.split("\\)")[0].trim();
+                    }
+                    return districtPart;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            System.err.println("Error parsing district from: " + submissionLocation);
+            return null;
+        }
+    }
+
+    // Get applications by district
+    public List<PcpndtInitiatedData> getApplicationsByDistrict(String district) {
+        // First, get all submission locations that match this district
+        List<String> allLocations = applicationMasterRepository.findAllDistinctSubmissionLocations();
+        
+        List<String> matchingLocations = allLocations.stream()
+                .filter(location -> {
+                    String extractedDistrict = extractDistrictFromSubmissionLocation(location);
+                    return extractedDistrict != null && extractedDistrict.equalsIgnoreCase(district);
+                })
+                .collect(Collectors.toList());
+        
+        // Now find applications with these submission locations
+        return applicationMasterRepository.findBySubmissionLocationIn(matchingLocations);
+    }
+
+    // Get applications by service and district
+    public List<PcpndtInitiatedData> getApplicationsByServiceAndDistrict(String service, String district) {
+        return getApplicationsByDistrict(district);
+    }
+
+    // For debug endpoint
+    public ApplicationMasterRepository getApplicationMasterRepository() {
+        return applicationMasterRepository;
+    }
+}
+-------------------------------------------------------------------\29-10-2025 13:51
+
+Perfect! Based on your CSV data and entity classes, I can see you have the data structure. Let's develop the backend endpoints to filter centre names by district and application reference numbers by centre name.
+1. Repository Interfaces
+java
+
+// ApplicationMasterRepository.java
+package in.gov.serviceplus.pcpndt.repository;
+
+import in.gov.serviceplus.pcpndt.entity.ApplicationMaster;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface ApplicationMasterRepository extends JpaRepository<ApplicationMaster, String> {
+    
+    // Get distinct districts from routingLocationName
+    @Query("SELECT DISTINCT am.routingLocationName FROM ApplicationMaster am WHERE am.routingLocationName IS NOT NULL ORDER BY am.routingLocationName")
+    List<String> findDistinctDistricts();
+    
+    // Get centre names by district
+    @Query("SELECT DISTINCT am.nameOfCentre FROM ApplicationMaster am WHERE am.routingLocationName = :district AND am.nameOfCentre IS NOT NULL ORDER BY am.nameOfCentre")
+    List<String> findCentreNamesByDistrict(@Param("district") String district);
+    
+    // Get application reference numbers by centre name
+    @Query("SELECT am.applRefNo FROM ApplicationMaster am WHERE am.nameOfCentre = :centreName AND am.applRefNo IS NOT NULL ORDER BY am.applRefNo")
+    List<String> findApplRefNosByCentreName(@Param("centreName") String centreName);
+    
+    // Get application details by reference number
+    ApplicationMaster findByApplRefNo(String applRefNo);
+}
+
+2. DTO Classes for API Responses
+java
+
+// DropdownResponse.java
+package in.gov.serviceplus.pcpndt.dto;
+
+import java.util.List;
+
+public class DropdownResponse {
+    private boolean success;
+    private String message;
+    private List<String> data;
+    
+    public DropdownResponse(boolean success, String message, List<String> data) {
+        this.success = success;
+        this.message = message;
+        this.data = data;
+    }
+    
+    // Getters and Setters
+    public boolean isSuccess() { return success; }
+    public void setSuccess(boolean success) { this.success = success; }
+    
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    
+    public List<String> getData() { return data; }
+    public void setData(List<String> data) { this.data = data; }
+}
+
+java
+
+// ApplicationDetailsResponse.java
+package in.gov.serviceplus.pcpndt.dto;
+
+import in.gov.serviceplus.pcpndt.entity.ApplicationMaster;
+
+public class ApplicationDetailsResponse {
+    private boolean success;
+    private String message;
+    private ApplicationMaster data;
+    
+    public ApplicationDetailsResponse(boolean success, String message, ApplicationMaster data) {
+        this.success = success;
+        this.message = message;
+        this.data = data;
+    }
+    
+    // Getters and Setters
+    public boolean isSuccess() { return success; }
+    public void setSuccess(boolean success) { this.success = success; }
+    
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    
+    public ApplicationMaster getData() { return data; }
+    public void setData(ApplicationMaster data) { this.data = data; }
+}
+
+3. Controller Class
+java
+
+// DropdownController.java
+package in.gov.serviceplus.pcpndt.controller;
+
+import in.gov.serviceplus.pcpndt.dto.ApplicationDetailsResponse;
+import in.gov.serviceplus.pcpndt.dto.DropdownResponse;
+import in.gov.serviceplus.pcpndt.entity.ApplicationMaster;
+import in.gov.serviceplus.pcpndt.repository.ApplicationMasterRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/dropdown")
+@CrossOrigin(origins = "*") // For testing with frontend
+public class DropdownController {
+
+    @Autowired
+    private ApplicationMasterRepository applicationMasterRepository;
+
+    // Get all districts
+    @GetMapping("/districts")
+    public ResponseEntity<DropdownResponse> getDistricts() {
+        try {
+            List<String> districts = applicationMasterRepository.findDistinctDistricts();
+            return ResponseEntity.ok(new DropdownResponse(true, "Districts retrieved successfully", districts));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new DropdownResponse(false, "Error retrieving districts: " + e.getMessage(), null));
+        }
+    }
+
+    // Get centres by district
+    @GetMapping("/centres")
+    public ResponseEntity<DropdownResponse> getCentresByDistrict(@RequestParam String district) {
+        try {
+            List<String> centres = applicationMasterRepository.findCentreNamesByDistrict(district);
+            if (centres.isEmpty()) {
+                return ResponseEntity.ok(new DropdownResponse(true, "No centres found for district: " + district, centres));
+            }
+            return ResponseEntity.ok(new DropdownResponse(true, "Centres retrieved successfully", centres));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new DropdownResponse(false, "Error retrieving centres: " + e.getMessage(), null));
+        }
+    }
+
+    // Get application reference numbers by centre name
+    @GetMapping("/appl-ref-nos")
+    public ResponseEntity<DropdownResponse> getApplRefNosByCentre(@RequestParam String centreName) {
+        try {
+            List<String> applRefNos = applicationMasterRepository.findApplRefNosByCentreName(centreName);
+            if (applRefNos.isEmpty()) {
+                return ResponseEntity.ok(new DropdownResponse(true, "No application reference numbers found for centre: " + centreName, applRefNos));
+            }
+            return ResponseEntity.ok(new DropdownResponse(true, "Application reference numbers retrieved successfully", applRefNos));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new DropdownResponse(false, "Error retrieving application reference numbers: " + e.getMessage(), null));
+        }
+    }
+
+    // Get application details by reference number
+    @GetMapping("/application-details")
+    public ResponseEntity<ApplicationDetailsResponse> getApplicationDetails(@RequestParam String applRefNo) {
+        try {
+            ApplicationMaster application = applicationMasterRepository.findByApplRefNo(applRefNo);
+            if (application == null) {
+                return ResponseEntity.ok(new ApplicationDetailsResponse(false, "Application not found for reference number: " + applRefNo, null));
+            }
+            return ResponseEntity.ok(new ApplicationDetailsResponse(true, "Application details retrieved successfully", application));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApplicationDetailsResponse(false, "Error retrieving application details: " + e.getMessage(), null));
+        }
+    }
+}
+
+4. Test the Endpoints
+
+Now you can test these endpoints directly:
+Get All Districts:
+bash
+
+GET http://localhost:8080/api/dropdown/districts
+
+Get Centres by District:
+bash
+
+GET http://localhost:8080/api/dropdown/centres?district=KHORDHA
+GET http://localhost:8080/api/dropdown/centres?district=MAYURBHANJ
+
+Get Application Reference Numbers by Centre:
+bash
+
+GET http://localhost:8080/api/dropdown/appl-ref-nos?centreName=SPARSH HOSPITALS AND CRITICAL CARE PRIVATE LIMITED
+
+Get Application Details by Reference Number:
+bash
+
+GET http://localhost:8080/api/dropdown/application-details?applRefNo=PCPNDT/2021/00499
+
+5. Expected JSON Responses
+
+Districts Endpoint:
+json
+
+{
+  "success": true,
+  "message": "Districts retrieved successfully",
+  "data": [
+    "KHORDHA",
+    "MAYURBHANJ", 
+    "RAYAGADA",
+    "BALANGIR",
+    "JAGATSINGHAPUR",
+    "CUTTACK",
+    "BARGARH"
+  ]
+}
+
+Centres by District:
+json
+
+{
+  "success": true,
+  "message": "Centres retrieved successfully",
+  "data": [
+    "SANTAAN FERTILITY CENTER AND RESEARCH INSTITUTE",
+    "SHREE HOSPITALS A UNIT OF ODISHA MULTISPECIALITY HOSPITAL AND TRAUMA CARE CENTER PVT LTD",
+    "SPARSH HOSPITALS AND CRITICAL CARE PRIVATE LIMITED"
+  ]
+}
+
+Application Reference Numbers:
+json
+
+{
+  "success": true,
+  "message": "Application reference numbers retrieved successfully",
+  "data": [
+    "PCPNDT/2021/00499"
+  ]
+}
+
+6. Thymeleaf Integration (Next Step)
+
+Once you've tested these endpoints and confirmed they work, we can integrate them with your Thymeleaf frontend using JavaScript/AJAX calls to create the cascading dropdown functionality.
+
+Would you like me to:
+
+    Help you test these endpoints first?
+
+    Create the Thymeleaf HTML with JavaScript for the cascading dropdowns?
+
+    Add any additional filtering or data processing?
+
+Let me know which approach you'd prefer!
+
+
+
+// Add these endpoints to your existing FilterDataController
+package in.gov.serviceplus.pcpndt.controllers;
+
+import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+import in.gov.serviceplus.pcpndt.service.FilterService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/filters")
+@CrossOrigin(origins = "*")
+public class FilterDataController {
+    @Autowired
+    private FilterService filterService;
+
+    // Your existing endpoints...
+    @GetMapping("/services")
+    public ResponseEntity<List<String>> getAllServices() {
+        try {
+            List<String> services = filterService.getAllServices();
+            return ResponseEntity.ok(services);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/districts")
+    public ResponseEntity<List<String>> getAllDistricts() {
+        try {
+            List<String> districts = filterService.getAllDistricts();
+            return ResponseEntity.ok(districts);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/applications")
+    public ResponseEntity<List<PcpndtInitiatedData>> getApplicationsByFilter(
+            @RequestParam String service,
+            @RequestParam String district) {
+        try {
+            List<PcpndtInitiatedData> applications = filterService.getApplicationsByServiceAndDistrict(service, district);
+            return ResponseEntity.ok(applications);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/debug-districts")
+    public ResponseEntity<Map<String, Object>> debugDistrictExtraction() {
+        try {
+            List<String> submissionLocations = filterService.getApplicationMasterRepository().findAllDistinctSubmissionLocations();
+            Map<String, String> extractionResults = new HashMap<>();
+            for (String location : submissionLocations) {
+                String extractedDistrict = filterService.extractDistrictFromSubmissionLocation(location);
+                extractionResults.put(location, extractedDistrict);
+            }
+            List<String> finalDistricts = filterService.getAllDistricts();
+            Map<String, Object> response = new HashMap<>();
+            response.put("submissionLocations", submissionLocations);
+            response.put("extractionMapping", extractionResults);
+            response.put("finalDistricts", finalDistricts);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+
+    // NEW ENDPOINTS FOR CASCADING DROPDOWNS
+    
+    /**
+     * Get centre names by district
+     * GET /api/filters/centres?district=KHORDHA
+     */
+    @GetMapping("/centres")
+    public ResponseEntity<List<String>> getCentresByDistrict(@RequestParam String district) {
+        try {
+            List<String> centres = filterService.getCentreNamesByDistrict(district);
+            return ResponseEntity.ok(centres);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * Get application reference numbers by centre name
+     * GET /api/filters/appl-ref-nos?centreName=SPARSH HOSPITALS AND CRITICAL CARE PRIVATE LIMITED
+     */
+    @GetMapping("/appl-ref-nos")
+    public ResponseEntity<List<String>> getApplRefNosByCentre(@RequestParam String centreName) {
+        try {
+            List<String> applRefNos = filterService.getApplRefNosByCentreName(centreName);
+            return ResponseEntity.ok(applRefNos);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * Get complete application details by reference number
+     * GET /api/filters/application-details?applRefNo=PCPNDT/2021/00499
+     */
+    @GetMapping("/application-details")
+    public ResponseEntity<?> getApplicationDetails(@RequestParam String applRefNo) {
+        try {
+            Optional<PcpndtInitiatedData> application = filterService.getCompleteApplicationByRefNo(applRefNo);
+            if (application.isPresent()) {
+                return ResponseEntity.ok(application.get());
+            } else {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Application not found for reference number: " + applRefNo);
+                return ResponseEntity.badRequest().body(error);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Error retrieving application: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+    
+    /**
+     * Test endpoint for cascading dropdown data
+     * GET /api/filters/test-cascading
+     */
+    @GetMapping("/test-cascading")
+    public ResponseEntity<Map<String, Object>> testCascadingData() {
+        try {
+            Map<String, Object> response = new HashMap<>();
+            
+            // Get all districts
+            List<String> districts = filterService.getAllDistricts();
+            response.put("districts", districts);
+            
+            // For each district, get centres
+            Map<String, List<String>> districtCentres = new HashMap<>();
+            for (String district : districts) {
+                List<String> centres = filterService.getCentreNamesByDistrict(district);
+                districtCentres.put(district, centres);
+            }
+            response.put("districtCentres", districtCentres);
+            
+            // For sample centres, get application reference numbers
+            Map<String, List<String>> centreApplications = new HashMap<>();
+            for (String district : districts) {
+                List<String> centres = filterService.getCentreNamesByDistrict(district);
+                if (!centres.isEmpty()) {
+                    String sampleCentre = centres.get(0);
+                    List<String> applRefNos = filterService.getApplRefNosByCentreName(sampleCentre);
+                    centreApplications.put(sampleCentre, applRefNos);
+                    break; // Just show one example
+                }
+            }
+            response.put("sampleCentreApplications", centreApplications);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+}
+
+
+
+package in.gov.serviceplus.pcpndt.repository;
+
+import in.gov.serviceplus.pcpndt.entity.PcpndtInitiatedData;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface DropdownRepository extends JpaRepository<PcpndtInitiatedData, Long> {
+    
+    // Get distinct districts from submission_location
+    @Query("SELECT DISTINCT p.submission_location FROM PcpndtInitiatedData p WHERE p.submission_location IS NOT NULL")
+    List<String> findAllDistinctSubmissionLocations();
+    
+    // Get centre names by district (filtered from submission_location)
+    @Query("SELECT DISTINCT p.name_of_centre FROM PcpndtInitiatedData p WHERE p.submission_location LIKE %:district% AND p.name_of_centre IS NOT NULL ORDER BY p.name_of_centre")
+    List<String> findCentreNamesByDistrict(@Param("district") String district);
+    
+    // Get application reference numbers by centre name
+    @Query("SELECT p.appl_ref_no FROM PcpndtInitiatedData p WHERE p.name_of_centre = :centreName AND p.appl_ref_no IS NOT NULL ORDER BY p.appl_ref_no")
+    List<String> findApplRefNosByCentreName(@Param("centreName") String centreName);
+    
+    // Get complete application details by reference number
+    @Query("SELECT p FROM PcpndtInitiatedData p WHERE p.appl_ref_no = :applRefNo")
+    Optional<PcpndtInitiatedData> findCompleteApplicationByRefNo(@Param("applRefNo") String applRefNo);
+    
+    // Find applications by submission locations (for existing functionality)
+    @Query("SELECT p FROM PcpndtInitiatedData p WHERE p.submission_location IN :submissionLocations")
+    List<PcpndtInitiatedData> findBySubmissionLocations(@Param("submissionLocations") List<String> submissionLocations);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GET http://localhost:8080/api/filters/centres?district=KHORDHA
+
+GET http://localhost:8080/api/filters/appl-ref-nos?centreName=SPARSH HOSPITALS AND CRITICAL CARE PRIVATE LIMITED
+
+GET http://localhost:8080/api/filters/application-details?applRefNo=PCPNDT/2021/00499
+
+GET http://localhost:8080/api/filters/test-cascading
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

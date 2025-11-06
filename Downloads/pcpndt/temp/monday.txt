@@ -1,0 +1,713 @@
+Perfect! No doubts at all - I understand your requirement clearly! Here's my explanation of what you want to build:
+🎯 Your 3-Dropdown Filter System
+1. Service Name Dropdown
+
+    Purpose: Filter by service type
+
+    Options: "PC PNDT" (and potentially other services in future)
+
+    Behavior: Single selection, acts as primary filter
+
+2. District Name Dropdown
+
+    Purpose: Filter applications by geographical district
+
+    Options: 30+ districts (Angul, Bhubaneswar, Cuttack, etc.)
+
+    Behavior: Dynamic - might change based on service selection
+
+3. Applications Dropdown
+
+    Purpose: Show filtered PCPNDT applications
+
+    Options: Application references like "PCPNDT/2021/00105", "PCPNDT/2021/00106", etc.
+
+    Behavior: Dependent dropdown - shows only applications matching selected service + district
+
+🔄 User Workflow Flow
+
+    User selects Service Name → "PC PNDT"
+
+    System shows relevant Districts for PC PNDT
+
+    User selects District → "Angul"
+
+    System shows Applications from Angul district for PC PNDT service
+
+    User selects specific Application to view details
+
+🗃️ Database Considerations
+
+    You'll need district data in your database
+
+    Applications table should have district column
+
+    Need service type column to filter by "PC PNDT"
+
+🔗 API Endpoints You'll Need
+
+    GET /api/services - Get all service types
+
+    GET /api/districts?service={serviceName} - Get districts for a service
+
+    GET /api/applications?service={service}&district={district} - Get filtered applications
+
+🎨 Frontend Behavior
+
+    Cascading dropdowns - each selection updates the next
+
+    Loading states while fetching data
+
+    Empty states when no results
+
+    Search/typeahead for large lists
+
+🚀 Enhancement Benefits
+
+    Faster navigation than manual search
+
+    Better user experience with guided filtering
+
+    Data discovery - users can explore available applications
+
+    Scalable - can add more filters later
+
+Am I correct in understanding this flow? Once confirmed, I'll help you implement this step-by-step! 💪
+--------------------------------------------------------------------------------------
+Perfect! I understand completely. Let me break this down step-by-step with proper project structure:
+📁 Project Structure Enhancement
+text
+
+src/
+├── main/
+│   ├── java/
+│   │   └── in/gov/serviceplus/pcpndt/
+│   │       ├── controllers/
+│   │       │   ├── NewFormHController.java
+│   │       │   └── **new** FilterDataController.java
+│   │       ├── entities/
+│   │       │   ├── Application.java
+│   │       │   └── **new** District.java
+│   │       ├── repositories/
+│   │       │   ├── ApplicationRepository.java
+│   │       │   └── **new** DistrictRepository.java
+│   │       ├── services/
+│   │       │   ├── ApplicationService.java
+│   │       │   └── **new** FilterService.java
+│   │       └── dto/
+│   │           └── **new** FilterResponseDto.java
+│   └── resources/
+│       └── templates/
+│           └── form-h/
+│               ├── new-form-h-report.html
+│               └── new-search-form.html (we'll enhance this)
+
+🚀 Step-by-Step Implementation
+Step 1: Database Enhancement
+
+    Add district column to your applications table (if not exists)
+
+    Create districts table with district names
+
+Step 2: Backend Entities & Repositories
+java
+
+// District Entity
+@Entity
+@Table(name = "districts")
+public class District {
+    @Id
+    private Long id;
+    private String name;
+    private String code;
+}
+
+// Enhanced Application Entity (add district field)
+@Entity
+@Table(name = "pcpndt_initiated_data")
+public class Application {
+    // ... existing fields ...
+    private String district; // Add this field
+}
+
+Step 3: Service Layer
+java
+
+@Service
+public class FilterService {
+    
+    public List<String> getAllServices() {
+        return List.of("PC PNDT"); // Can expand later
+    }
+    
+    public List<District> getDistrictsByService(String service) {
+        // Return districts that have applications for this service
+    }
+    
+    public List<Application> getApplicationsByServiceAndDistrict(String service, String district) {
+        // Return filtered applications
+    }
+}
+
+Step 4: REST API Controllers
+java
+
+@RestController
+@RequestMapping("/api/filters")
+public class FilterDataController {
+    
+    @GetMapping("/services")
+    public List<String> getServices() {
+        return filterService.getAllServices();
+    }
+    
+    @GetMapping("/districts")
+    public List<District> getDistricts(@RequestParam String service) {
+        return filterService.getDistrictsByService(service);
+    }
+    
+    @GetMapping("/applications")
+    public List<Application> getApplications(
+            @RequestParam String service, 
+            @RequestParam String district) {
+        return filterService.getApplicationsByServiceAndDistrict(service, district);
+    }
+}
+
+Step 5: Frontend Enhancement (new-search-form.html)
+
+We'll add:
+
+    3 dropdowns with cascading behavior
+
+    JavaScript for dynamic loading
+
+    AJAX calls to your new APIs
+
+    Loading indicators
+
+Step 6: Thymeleaf Integration
+
+    Pre-populate services dropdown
+
+    JavaScript handles district and application loading
+
+    Form submission with selected application
+
+🎯 Expected User Flow
+
+    Page loads → Services dropdown shows "PC PNDT"
+
+    User selects service → Districts dropdown loads via AJAX
+
+    User selects district → Applications dropdown loads via AJAX
+
+    User selects application → Form submits to show report
+
+❓ Questions Before We Code:
+
+    Do you already have a districts table in your database?
+
+    Does your pcpndt_initiated_data table have a district column?
+
+    Should we create the districts table or use an existing one?
+
+Which step shall we start with? I recommend starting with the database enhancement! 💪
+
+------------------------
+Ah! Perfect! Now I understand your data structure! 🎯
+
+You have the district information embedded in the submission_location column in this format:
+"Office of the Chief District Medical Officer( DISTRICT - MAYURBHANJ )"
+📊 Data Extraction Strategy
+Current Data Pattern:
+text
+
+submission_location: "Office of the Chief District Medical Officer( DISTRICT - MAYURBHANJ )"
+                                ↑
+                          Extract this → "MAYURBHANJ"
+
+Step 1: Extract Districts from Existing Data
+
+We'll parse the submission_location column to extract district names:
+sql
+
+-- Get unique districts from existing data
+SELECT DISTINCT 
+    TRIM(SPLIT_PART(SPLIT_PART(submission_location, 'DISTRICT -', 2), ')', 1)) as district
+FROM pcpndt_initiated_data 
+WHERE submission_location LIKE '%DISTRICT -%';
+
+Step 2: Enhanced Project Structure
+
+We DON'T need a separate districts table - we'll extract dynamically!
+text
+
+services/
+├── FilterService.java
+│   - extractDistrictsFromApplications()
+│   - getApplicationsByDistrict()
+
+Step 3: District Extraction Logic
+java
+
+public List<String> extractDistricts() {
+    // Query: SELECT DISTINCT submission_location FROM pcpndt_initiated_data
+    // Parse: "Office...DISTRICT - MAYURBHANJ )" → "MAYURBHANJ"
+}
+
+🎯 Revised 3-Dropdown Flow
+1. Service Name Dropdown
+
+    Options: "PC PNDT" (fixed for now)
+
+2. District Name Dropdown
+
+    Source: Parse submission_location from existing applications
+
+    Options: "MAYURBHANJ", "ANGUL", "CUTTACK", etc. (extracted dynamically)
+
+    No hardcoded list - grows automatically with new applications
+
+3. Applications Dropdown
+
+    Filtered by selected district
+
+    Shows: "PCPNDT/2021/00105", etc.
+
+🔍 District Extraction Examples:
+
+From: "Office of the Chief District Medical Officer( DISTRICT - MAYURBHANJ )"
+Extract: "MAYURBHANJ"
+
+From: "Office of the CDMO( DISTRICT - ANGUL )"
+Extract: "ANGUL"
+
+From: "CDMO Office( DISTRICT - CUTTACK )"
+Extract: "CUTTACK"
+✅ Benefits of This Approach:
+
+    No database schema changes required
+
+    Dynamic district list - automatically updates with new applications
+
+    Uses existing data - no manual district maintenance
+
+    Scalable - handles new districts automatically
+
+🚀 Implementation Steps:
+
+    Create FilterService with district extraction logic
+
+    Add API endpoints for districts and filtered applications
+
+    Enhance new-search-form.html with JavaScript for dynamic dropdowns
+
+    Test with your existing data
+
+Shall we start with the FilterService and district extraction logic? This is the most critical part! 💪
+-----------------
+{"136514" : "11~Approve", "136515" : "21/7860001/2021/02/26/201287076/7860001_30671661_10050_1629374852922.pdf", 
+"136516" : "Basing the DAC Approval-SL No2(b) on Dtd.05.04.2021 \r\nForm-B is issued", "136517" : " ", 
+"143878" : "18/08/2026", "143880" : "1", "143895" : "KDR-252/2021-PCPNDT/2021/00004", 
+"145023" : "1", "145060" : "PNDT", "145015" : "{\"f1\": 1, \"145016_1\": \"SAMSUNG INDIA ELECTRONICS PVT LTD\", \"145020_1\": 
+\"SAMSUNG HS30\", \"145021_1\": \"SAMSUNG INDIA ELECTRONICS PVT LTD\", \"145022_1\": \"22/05/2021\"}"}
+
+
+{"53437" : " ", "53441" : "02/02/2013", "57185" : "SMT PAURNAMASI DASH", "57186" : "Behind Kalakahnu Kalyan Mandap , Andhia , 
+Nimapada Puri  And Plot No 1545 , Behind Kalyani Club , Old Town Bhubaneswar", "57187" : "3543~NIMAPADA                                          
+", "57188" : " ", "57189" : "369~PURI", "57190" : " ", "57191" : " ", "57197" : "Behind Kalakahnu Kalyan Mandap , 
+Andhia , Nimapada Puri  And Plot No 1545 , Behind Kalyani Club , Old Town Bhubaneswar", "57198" : "3906~NIMAPADA", 
+"57199" : " ", "57200" : "369~PURI", "57201" : " ", "57202" : " ", "57214" : "AASTHA HOSPITAL", "57215" : "369~PURI", "57216" : " ", 
+"57217" : "Behind Kalakahnu Kalyan Mandap Andhia Nimapada Puri", "57218" : "3906~NIMAPADA", "57219" : " ", "64199" : "9~Forward", 
+"64200" : "11353244~OR001767", "64201" : " ", "64202" : " "}
+
+{"136514" : "11~Approve", "136515" : "21/7860001/2021/07/23/201858451/7860001_32074310_10050_1629531736594.pdf", 
+"136516" : " ", "136517" : " ", "143878" : "25/09/2023", "143880" : "4", "143895" : "OD/NRP/PC & PNDT/003/2013", 
+"145023" : " ", "145060" : " ", "145013" : "{\"f1\": 1, \"145014_1\": \"Samsung\", \"145017_1\": \"HS40S1KKM3HMA00011W\", \"145018_1\": \"Samsung Medison Co Ltd\", \"145019_1\": \"05/03/2020\"}"}
+------------------------------------------
+
+EXCELLENT! Let's build the FilterService step by step! 🚀
+Step 1: Create the FilterService Class
+
+Create new file: src/main/java/in/gov/serviceplus/pcpndt/services/FilterService.java
+java
+
+package in.gov.serviceplus.pcpndt.services;
+
+import in.gov.serviceplus.pcpndt.entities.Application;
+import in.gov.serviceplus.pcpndt.repositories.ApplicationRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class FilterService {
+
+    @Autowired
+    private ApplicationRepository applicationRepository;
+
+    // Get all available services (for future expansion)
+    public List<String> getAllServices() {
+        return List.of("PC PNDT");
+    }
+
+    // Extract unique districts from submission_location
+    public List<String> getAllDistricts() {
+        List<String> allSubmissionLocations = applicationRepository.findAllDistinctSubmissionLocations();
+        
+        return allSubmissionLocations.stream()
+                .map(this::extractDistrictFromSubmissionLocation)
+                .filter(district -> district != null && !district.trim().isEmpty())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    // Parse district from submission_location format
+    private String extractDistrictFromSubmissionLocation(String submissionLocation) {
+        if (submissionLocation == null || submissionLocation.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            // Pattern: "Office of the Chief District Medical Officer( DISTRICT - MAYURBHANJ )"
+            if (submissionLocation.contains("DISTRICT -")) {
+                String[] parts = submissionLocation.split("DISTRICT -");
+                if (parts.length > 1) {
+                    String districtPart = parts[1].trim();
+                    // Remove closing parenthesis and any extra text
+                    if (districtPart.contains(")")) {
+                        return districtPart.split("\\)")[0].trim();
+                    }
+                    return districtPart;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            // Log error and return null for this entry
+            System.err.println("Error parsing district from: " + submissionLocation);
+            return null;
+        }
+    }
+
+    // Get applications by district
+    public List<Application> getApplicationsByDistrict(String district) {
+        // First, get all submission locations that match this district
+        List<String> allLocations = applicationRepository.findAllDistinctSubmissionLocations();
+        
+        List<String> matchingLocations = allLocations.stream()
+                .filter(location -> {
+                    String extractedDistrict = extractDistrictFromSubmissionLocation(location);
+                    return extractedDistrict != null && extractedDistrict.equalsIgnoreCase(district);
+                })
+                .collect(Collectors.toList());
+        
+        // Now find applications with these submission locations
+        return applicationRepository.findBySubmissionLocationIn(matchingLocations);
+    }
+
+    // Get applications by service and district (for future expansion)
+    public List<Application> getApplicationsByServiceAndDistrict(String service, String district) {
+        // For now, service is always "PC PNDT", so we ignore it
+        return getApplicationsByDistrict(district);
+    }
+}
+
+Step 2: Enhance ApplicationRepository
+
+Add these methods to your existing ApplicationRepository.java:
+java
+
+public interface ApplicationRepository extends JpaRepository<Application, Long> {
+    
+    // Existing methods...
+    
+    // New method: Get distinct submission locations
+    @Query("SELECT DISTINCT a.submissionLocation FROM Application a WHERE a.submissionLocation IS NOT NULL")
+    List<String> findAllDistinctSubmissionLocations();
+    
+    // New method: Find applications by submission locations
+    List<Application> findBySubmissionLocationIn(List<String> submissionLocations);
+    
+    // Optional: Direct search by district pattern (alternative approach)
+    @Query("SELECT a FROM Application a WHERE a.submissionLocation LIKE %:districtPattern%")
+    List<Application> findBySubmissionLocationContaining(@Param("districtPattern") String districtPattern);
+}
+
+Step 3: Test the District Extraction
+
+Let's first test if our district extraction works. Before proceeding to Step 4, let's verify:
+
+    Does your Application entity have a submissionLocation field?
+
+    Can you share your current Application.java entity code?
+
+    Do you want to create a temporary test endpoint to see the extracted districts?
+
+🔍 What We're Doing:
+
+    getAllDistricts() - Extracts "MAYURBHANJ", "ANGUL", etc. from submission_location
+
+    extractDistrictFromSubmissionLocation() - Parses the district name from the text
+
+    getApplicationsByDistrict() - Filters applications by district
+
+Should we proceed to create the REST controller, or do you want to verify the Application entity first? 💪
+-------------------
+PERFECT! Let's create the REST Controller! 🚀
+Step 3: Create FilterDataController
+
+Create new file: src/main/java/in/gov/serviceplus/pcpndt/controllers/FilterDataController.java
+java
+
+package in.gov.serviceplus.pcpndt.controllers;
+
+import in.gov.serviceplus.pcpndt.entities.Application;
+import in.gov.serviceplus.pcpndt.services.FilterService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/filters")
+@CrossOrigin(origins = "*") // Allow frontend to call these APIs
+public class FilterDataController {
+
+    @Autowired
+    private FilterService filterService;
+
+    /**
+     * Get all available services
+     * GET /api/filters/services
+     */
+    @GetMapping("/services")
+    public ResponseEntity<List<String>> getAllServices() {
+        try {
+            List<String> services = filterService.getAllServices();
+            return ResponseEntity.ok(services);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Get all unique districts extracted from submission_locations
+     * GET /api/filters/districts
+     */
+    @GetMapping("/districts")
+    public ResponseEntity<List<String>> getAllDistricts() {
+        try {
+            List<String> districts = filterService.getAllDistricts();
+            return ResponseEntity.ok(districts);
+        } catch (Exception e) {
+            e.printStackTrace(); // For debugging
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Get applications filtered by service and district
+     * GET /api/filters/applications?service=PC+PNDT&district=MAYURBHANJ
+     */
+    @GetMapping("/applications")
+    public ResponseEntity<List<Application>> getApplicationsByFilter(
+            @RequestParam String service,
+            @RequestParam String district) {
+        try {
+            List<Application> applications = filterService.getApplicationsByServiceAndDistrict(service, district);
+            return ResponseEntity.ok(applications);
+        } catch (Exception e) {
+            e.printStackTrace(); // For debugging
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Test endpoint to see raw submission locations and extracted districts
+     * GET /api/filters/debug-districts
+     */
+    @GetMapping("/debug-districts")
+    public ResponseEntity<Map<String, Object>> debugDistrictExtraction() {
+        try {
+            List<String> submissionLocations = filterService.getApplicationRepository().findAllDistinctSubmissionLocations();
+            
+            Map<String, String> extractionResults = new HashMap<>();
+            for (String location : submissionLocations) {
+                String extractedDistrict = filterService.extractDistrictFromSubmissionLocation(location);
+                extractionResults.put(location, extractedDistrict);
+            }
+            
+            List<String> finalDistricts = filterService.getAllDistricts();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("submissionLocations", submissionLocations);
+            response.put("extractionMapping", extractionResults);
+            response.put("finalDistricts", finalDistricts);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+}
+
+Step 4: Quick Fix for FilterService
+
+We need to expose the repository for the debug endpoint. Add this method to your FilterService:
+java
+
+// Add this method to FilterService.java
+public ApplicationRepository getApplicationRepository() {
+    return applicationRepository;
+}
+
+Step 5: Test Your APIs
+
+Now test these endpoints in your browser:
+📍 Test URLs:
+
+    http://localhost:8080/api/filters/services
+
+        Should return: ["PC PNDT"]
+
+    http://localhost:8080/api/filters/districts
+
+        Should return districts like: ["MAYURBHANJ", "ANGUL", "CUTTACK", ...]
+
+    http://localhost:8080/api/filters/debug-districts
+
+        Shows raw data and extraction process (for debugging)
+
+    http://localhost:8080/api/filters/applications?service=PC+PNDT&district=MAYURBHANJ
+
+        Should return applications from Mayurbhanj district
+
+🔧 If You Get Errors:
+
+If the debug endpoint shows issues with district extraction, we might need to adjust the parsing logic based on your actual data format.
+🚀 Next Steps:
+
+    Test these APIs first - make sure district extraction works
+
+    Then we'll enhance new-search-form.html with JavaScript
+
+    Add the 3 dropdowns with dynamic loading
+
+Go ahead and test the APIs! Let me know what results you get from /api/filters/debug-districts - this will show us exactly how the district extraction is working! 💪
+
+    http://localhost:8080/api/filters/services
+
+    http://localhost:8080/api/filters/districts
+
+    http://localhost:8080/api/filters/debug-districts
+
+    http://localhost:8080/api/filters/applications?service=PC+PNDT&district=MAYURBHANJ
+
+GET http://localhost:8080/api/filters/services
+GET http://localhost:8080/api/filters/districts
+GET http://localhost:8080/api/filters/debug-districts
+GET http://localhost:8080/api/filters/applications?service=PC+PNDT&district=MAYURBHANJ
+
+    http://localhost:8080/api/filters/services
+
+    http://localhost:8080/api/filters/districts
+
+    http://localhost:8080/api/filters/debug-districts
+
+
+
+
+
+
+
+
+http://localhost:8080/api/filters/debug-districts
+
+@GetMapping("/debug-districts")
+public ResponseEntity<Map<String, Object>> debugDistrictExtraction() {
+    try {
+        // COMMENT OUT OR REMOVE THIS WHOLE METHOD TEMPORARILY
+        // List<String> submissionLocations = filterService.getApplicationMasterRepository().findAllDistinctSubmissionLocations();
+        
+        // Map<String, String> extractionResults = new HashMap<>();
+        // for (String location : submissionLocations) {
+        //     String extractedDistrict = filterService.extractDistrictFromSubmissionLocation(location);
+        //     extractionResults.put(location, extractedDistrict);
+        // }
+        
+        // List<String> finalDistricts = filterService.getAllDistricts();
+        
+        // Map<String, Object> response = new HashMap<>();
+        // response.put("submissionLocations", submissionLocations);
+        // response.put("extractionMapping", extractionResults);
+        // response.put("finalDistricts", finalDistricts);
+        
+        // return ResponseEntity.ok(response);
+        
+        return ResponseEntity.ok(Collections.singletonMap("message", "Debug endpoint disabled"));
+        
+    } catch (Exception e) {
+        e.printStackTrace();
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", e.getMessage());
+        return ResponseEntity.internalServerError().body(error);
+    }
+}
+
+private String extractDistrictFromSubmissionLocation(String submissionLocation) {
+    if (submissionLocation == null || submissionLocation.trim().isEmpty()) {
+        return null;
+    }
+    
+    try {
+        if (submissionLocation.contains("DISTRICT -")) {
+            String[] parts = submissionLocation.split("DISTRICT -");
+            if (parts.length > 1) {
+                String districtPart = parts[1].trim();
+                if (districtPart.contains(")")) {
+                    return districtPart.split("\\)")[0].trim();
+                }
+                return districtPart;
+            }
+        }
+        return null;
+    } catch (Exception e) {
+        System.err.println("Error parsing district from: " + submissionLocation);
+        return null;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

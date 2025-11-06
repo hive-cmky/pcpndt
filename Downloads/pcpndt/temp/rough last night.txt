@@ -1,0 +1,455 @@
+entity-
+ApplicationMaster.java
+ApplicationExecution.java
+ApplicationFilteredExecution.java
+
+repository-
+ApplicationMasterRepository.java
+ApplicationMasterRepositoryImpl.java
+ApplicationExecutionRepository.java
+ApplicationFilteredExecutionRepository.java
+ApplicationSearchCustomRepository.java
+ApplicationSearchRepository.java
+ApplicationSearchRepositoryImpl.java
+
+src/main/java/com/yourpackage/repository/
+├── ApplicationMasterRepository.java          (Interface)
+├── ApplicationExecutionRepository.java       (Interface)  
+├── ApplicationFilteredExecutionRepository.java (Interface)
+└── ApplicationSearchRepositoryImpl.java      (Class - Implementation)
+
+service--
+ApplicationSearchService.java
+ApplicationNotFoundException.java
+ApplicationSearchResult.java
+dto--
+ApplicationDetailsDto.java
+ExecutionHistoryDto.java
+FilteredExecutionDto
+src/main/java/com/yourpackage/
+├── entity/
+│   ├── ApplicationMaster.java
+│   ├── ApplicationExecution.java
+│   ├── ApplicationFilteredExecution.java
+│   └── package-info.java
+├── repository/
+│   ├── ApplicationMasterRepository.java
+│   ├── ApplicationExecutionRepository.java
+│   ├── ApplicationFilteredExecutionRepository.java
+│   └── package-info.java
+├── service/
+│   ├── ApplicationSearchService.java
+│   ├── exception/
+│   │   └── ApplicationNotFoundException.java
+│   └── package-info.java
+└── dto/
+    ├── response/
+    │   ├── ApplicationSearchResult.java
+    │   ├── ApplicationDetailsDto.java
+    │   ├── ExecutionHistoryDto.java
+    │   ├── FilteredExecutionDto.java
+    │   └── SearchMetadata.java
+    ├── request/
+    │   └── (Future request DTOs can go here)
+    └── package-info.java
+
+src/main/java/com/yourpackage/
+├── entity/
+│   ├── ApplicationMaster.java
+│   ├── ApplicationExecution.java
+│   ├── ApplicationFilteredExecution.java
+├── repository/
+│   ├── ApplicationMasterRepository.java
+│   ├── ApplicationExecutionRepository.java
+│   ├── ApplicationFilteredExecutionRepository.java
+├── service/
+│   ├── ApplicationSearchService.java
+│   ├── exception/
+│   │   └── ApplicationNotFoundException.java
+├── dto/
+│   ├── response/
+│   │   ├── ApplicationSearchResult.java
+│   │   ├── ApplicationDetailsDto.java
+│   │   ├── ExecutionHistoryDto.java
+│   │   ├── FilteredExecutionDto.java
+│   │   ├── SearchMetadata.java
+│   │   └── ErrorResponse.java
+└── controller/
+    ├── ApplicationSearchController.java
+    ├── advice/
+    │   └── GlobalExceptionHandler.java
+
+
+src/main/java/com/yourpackage/
+├── entity/
+│   ├── ApplicationMaster.java
+│   ├── ApplicationExecution.java
+│   ├── ApplicationFilteredExecution.java
+├── repository/
+│   ├── ApplicationMasterRepository.java
+│   ├── ApplicationExecutionRepository.java
+│   ├── ApplicationFilteredExecutionRepository.java
+├── service/
+│   ├── ApplicationSearchService.java
+│   ├── FormHDataService.java              ← NEW
+│   ├── exception/
+│   │   └── ApplicationNotFoundException.java
+├── dto/
+│   ├── response/
+│   │   ├── ApplicationSearchResult.java
+│   │   ├── ApplicationDetailsDto.java
+│   │   ├── ExecutionHistoryDto.java
+│   │   ├── FilteredExecutionDto.java
+│   │   ├── SearchMetadata.java
+│   │   ├── ErrorResponse.java
+│   │   ├── FormHDataDto.java              ← NEW
+│   │   └── RenewalDto.java                ← NEW
+│   └── request/
+│       └── (Future request DTOs)
+├── controller/
+│   ├── ApplicationSearchController.java
+│   ├── FormHDataController.java           ← NEW
+│   └── advice/
+│       └── GlobalExceptionHandler.java
+└── PcpndtApplication.java                 (Main Spring Boot class)
+
+src/main/resources/
+├── templates/
+│   ├── form-h/
+│   │   ├── search-form.html               ← NEW
+│   │   └── form-h-report.html             ← NEW
+│   └── (existing templates)
+├── application.properties
+└── static/
+    └── (CSS, JS files if any)
+
+src/test/java/com/yourpackage/
+├── service/
+│   ├── ApplicationSearchServiceTest.java
+│   └── FormHDataServiceTest.java          ← NEW
+├── controller/
+│   ├── ApplicationSearchControllerTest.java
+│   └── FormHDataControllerTest.java       ← NEW
+Client Request 
+    ↓
+REST Controller (ApplicationSearchController)
+    ↓
+Service Layer (ApplicationSearchService) 
+    ↓
+Repository Layer (JPA Repositories)
+    ↓
+Database (PostgreSQL - 3 Tables)
+    ↓
+Response DTO Mapping
+    ↓
+JSON Response to Client
+1. GET /api/v1/applications/search?applRefNo=PCPNDT/2021/00105
+2. Controller validates input and calls Service
+3. Service calls ApplicationMasterRepository.findByApplRefNo()
+4. Gets appl_id from pcpndt_initiated_data
+5. Service calls Execution Repositories with appl_id
+6. Combines data from all 3 tables
+7. Maps Entity → DTO for clean JSON response
+8. Returns structured response with metadata
+complete project structure
+-----------------
+src/main/java/com/yourpackage/
+├── entity/
+│   ├── ApplicationMaster.java
+│   ├── ApplicationExecution.java
+│   ├── ApplicationFilteredExecution.java
+├── repository/
+│   ├── ApplicationMasterRepository.java
+│   ├── ApplicationExecutionRepository.java
+│   ├── ApplicationFilteredExecutionRepository.java
+├── service/
+│   ├── ApplicationSearchService.java
+│   ├── FormHDataService.java              ← NEW
+│   ├── exception/
+│   │   └── ApplicationNotFoundException.java
+├── dto/
+│   ├── response/
+│   │   ├── ApplicationSearchResult.java
+│   │   ├── ApplicationDetailsDto.java
+│   │   ├── ExecutionHistoryDto.java
+│   │   ├── FilteredExecutionDto.java
+│   │   ├── SearchMetadata.java
+│   │   ├── ErrorResponse.java
+│   │   ├── FormHDataDto.java              ← NEW
+│   │   └── RenewalDto.java                ← NEW
+│   └── request/
+│       └── (Future request DTOs)
+├── controller/
+│   ├── ApplicationSearchController.java
+│   ├── FormHDataController.java           ← NEW
+│   └── advice/
+│       └── GlobalExceptionHandler.java
+└── PcpndtApplication.java                 (Main Spring Boot class)
+
+src/main/resources/
+├── templates/
+│   ├── form-h/
+│   │   ├── search-form.html               ← NEW
+│   │   └── form-h-report.html             ← NEW
+│   └── (existing templates)
+├── application.properties
+└── static/
+    └── (CSS, JS files if any)
+
+src/test/java/com/yourpackage/
+├── service/
+│   ├── ApplicationSearchServiceTest.java
+│   └── FormHDataServiceTest.java          ← NEW
+├── controller/
+│   ├── ApplicationSearchControllerTest.java
+│   └── FormHDataControllerTest.java       ← NEW
+
+User Request (applRefNo)
+    ↓
+FormHDataController
+    ↓
+FormHDataService
+    ↓
+ApplicationMasterRepository (get initiated_data JSON)
+    ↓
+ApplicationExecutionRepository (get officialform JSON)  
+    ↓
+Data Extraction & Mapping
+    ↓
+FormHDataDto (populated with Form H fields)
+    ↓
+JSON Response (API) OR Thymeleaf HTML (Web)
+
+Form H Field	Data Source	JSON Field Example
+File Number	pcpndt_initiated_data	appl_ref_no
+Receipt Date	pcpndt_initiated_data	submission_date
+Applicant Details	initiated_data (jsonb)	"48664": "JITENDRA KUMAR DAS"
+Facility Details	initiated_data (jsonb)	"48676": "SONOLIFE ULTRASOUND CLINIC"
+Outcome	pcpndt_execution_data	taskname = "Certificate Generation By DAA"
+Expiry Date	officialform (jsonb)	"143878": "18/08/2026"
+
+src/
+├── main/
+│   ├── java/
+│   │   └── com/
+│   │       └── yourpackage/
+│   │           └── pcpndt/
+│   │               ├── PcpndtApplication.java
+│   │               ├── controller/
+│   │               │   ├── FormHController.java          // Existing controller
+│   │               │   └── NewFormHController.java       // NEW - for fresh frontend
+│   │               ├── service/
+│   │               │   └── FormHService.java             // Existing service
+│   │               ├── model/
+│   │               │   └── ApplicationRecord.java        // Existing model
+│   │               └── config/
+│   │                   └── AppConfig.java               // NEW - for RestTemplate
+│   └── resources/
+│       ├── static/
+│       │   ├── css/
+│       │   ├── js/
+│       │   └── images/
+│       └── templates/
+│           ├── search-form.html                         // Existing search form
+│           ├── form-h-report.html                       // Existing Form H report
+│           ├── new-search-form.html                     // NEW - updated search form
+│           └── new-form-h-report.html                   // NEW - updated Form H report
+
+Java Classes:
+
+    PcpndtApplication.java - Main Spring Boot application class
+
+    FormHController.java - Your existing controller with / and /search endpoints
+
+    NewFormHController.java - NEW controller with /new-search and /new-search/results endpoints
+
+    FormHService.java - Your existing service class
+
+    ApplicationRecord.java - Your existing model class
+
+    AppConfig.java - NEW configuration for RestTemplate
+
+HTML Templates:
+
+    search-form.html - Your existing search form (unchanged)
+
+    form-h-report.html - Your existing Form H report (unchanged)
+
+owser (User) 
+    → NewFormHController (Middleman) 
+    → FormHDataController (Real API) 
+    → Database (Actual Data)
+    → Back to NewFormHController 
+    → Thymeleaf Template 
+    → Browser (Display)
+
+Your final clean controller structure should be:
+text
+
+✅ KEEP:
+├── SearchDataController.java           // Main cascading dropdown APIs
+├── FormHDataController.java            // Form H generation  
+├── NewFormHController.java             // Alternative Form H
+├── ApplicationSearchController.java    // Application search
+└── FilterDataController.java           // Filter endpoints
+
+Your final API endpoints are:
+text
+
+✅ PRODUCTION ENDPOINTS:
+GET /api/search/initial-data
+GET /api/search/districts  
+GET /api/search/centres?district=XXX
+GET /api/search/applications?centre=XXX
+GET /form-h/api/data?applRefNo=XXX
+
+
+package in.gov.serviceplus.pcpndt.config;
+
+import in.gov.serviceplus.pcpndt.service.CascadingDropdownService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/search")
+@CrossOrigin(origins = "*")
+public class SearchDataController {
+
+    @Autowired
+    private CascadingDropdownService cascadingDropdownService;
+
+    /**
+     * Get initial search data (services + districts)
+     * GET: http://localhost:8080/api/search/initial-data
+     */
+    @GetMapping("/initial-data")
+    public ResponseEntity<Map<String, Object>> getInitialData() {
+        try {
+            Map<String, Object> data = cascadingDropdownService.getInitialDropdownData();
+            return ResponseEntity.ok(data);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to load initial data: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all districts for search
+     * GET: http://localhost:8080/api/search/districts
+     */
+    @GetMapping("/districts")
+    public ResponseEntity<Map<String, Object>> getAllDistricts() {
+        try {
+            List<String> districts = cascadingDropdownService.getAllDistricts();
+            Map<String, Object> response = new HashMap<>();
+            response.put("districts", districts);
+            response.put("count", districts.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to load districts: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get centres for selected district
+     * GET: http://localhost:8080/api/search/centres?district=ANUGUL
+     */
+    @GetMapping("/centres")
+    public ResponseEntity<Map<String, Object>> getCentresByDistrict(@RequestParam String district) {
+        try {
+            List<String> centres = cascadingDropdownService.getCentresByDistrict(district);
+            Map<String, Object> response = new HashMap<>();
+            response.put("district", district);
+            response.put("centres", centres);
+            response.put("count", centres.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to load centres: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get application reference numbers for selected centre
+     * GET: http://localhost:8080/api/search/applications?centre=BISHNUPRIYA SEVA SADAN
+     */
+    @GetMapping("/applications")
+    public ResponseEntity<Map<String, Object>> getApplicationsByCentre(@RequestParam String centre) {
+        try {
+            List<String> applicationRefNos = cascadingDropdownService.getApplicationRefNosByCentre(centre);
+            Map<String, Object> response = new HashMap<>();
+            response.put("centre", centre);
+            response.put("applicationRefNos", applicationRefNos);
+            response.put("count", applicationRefNos.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to load applications: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Health check for search API
+     * GET: http://localhost:8080/api/search/health
+     */
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, String>> healthCheck() {
+        return ResponseEntity.ok(Map.of(
+                "status", "UP",
+                "service", "PCPNDT Search API",
+                "message", "Search endpoints are working correctly"
+        ));
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

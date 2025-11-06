@@ -1,0 +1,101 @@
+body{
+    background-color: #c2e1fd;
+}
+.logo{
+    height:71px;
+    width:80px;
+}
+
+.text{
+    font-family: "Merriweather", serif;
+    font-weight: bold;
+    font-size: 136%;
+}
+.cmimg{
+    height: 70px;
+    width: 90px;
+}
+.nav-item {
+    display: flex;
+    align-items: center;
+}
+.nav-link.text {
+    margin-right: 10px;
+    white-space: nowrap;
+    font-family: 'Merriweather', serif;
+}
+.container {
+  max-width: 100% !important;
+}
+.custom-bg {
+  background-color: #ffd43b;
+}
+.custom-bg1 {
+  background-color: #ffa94d;
+}
+.custom-bg2 {
+  background-color: #f03e3e;
+}
+.custom-bg3 {
+  background-color: #4dabf7;
+}
+.custom-bg4 {
+  background-color: #B0F74D;
+}
+.custom-text{
+    color: #000000
+}
+.bg1-custom{
+    background-color: #99e9f2;
+}
+.bg2-custom{
+    background-color: #96f2d7;
+}
+.bg3-custom{
+    background-color: #b2f2bb;
+}
+.bg4-custom{
+    background-color: #eebefa;
+}
+.card-header {
+    font-family: 'Times New Roman', Times, serif;
+    font-weight: 900;
+    color: #000000
+}
+.tt-bg{
+    background-color: #ffc078;
+    color: #000000
+}
+.custom-border-color1 {
+    border-color: #fd7e14;
+}
+.custom-border-color2{
+    border-color: #3bc9db;
+}
+.custom-border-color3{
+    border-color: #a9e34b;
+}
+.custom-border-color4{
+    border-color: #228be6;
+}
+.custom-border-color5{
+    border-color: #5c7cfa;
+}
+.custom-border-color6{
+    border-color: #845ef7;
+}
+.custom-border-color7{
+    border-color: #f06595;
+}
+.custom-font-size{
+    font-size: 15px
+}
+.bgcolor{
+    background-color:  #ffc078;
+}
+.center-table th,
+.center-table td {
+    text-align: center;
+}
+
+

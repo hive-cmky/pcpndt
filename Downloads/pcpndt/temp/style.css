@@ -1,0 +1,93 @@
+.site-title{
+    color:#d8ff00;
+    font-family: 'Noto Sans Oriya';
+    font-size: 40px;
+    font-weight: 800;
+    text-shadow: 4px 4px black;
+    
+}
+.title2{
+    color:rgb(55,12,13);
+    font-family:cursive;
+    font-weight: 400;
+    font-size: 15px;
+    text-shadow: 1.5px 1px rgb(55,12,13);
+}
+h3{
+    line-height: .2 !important;
+    color: white;
+}
+.bimage{
+	  height: 95px;
+	   width: 100%;
+	               /* background: url(../img/BeFunky7.png) no-repeat;*/
+	                background-size: cover;
+	                background-position: top center;
+	                border-bottom: 2px solid #91d0cd;
+	               /* background-color: #36b6ad;*/
+	                background-size: auto auto;
+	                background-size: auto auto;
+	                background-size: 100% 100%;
+    
+}
+
+div.contain{
+    text-align: center;
+    height: 130px;
+     margin-top: 35px;
+    
+}
+.active{
+	border-bottom: 2px solid #fff;
+	
+}
+.nav-item .active{
+	border-radius: 30px;
+}
+
+.top-22 {
+	top: 22%!important;
+}
+
+.required::after {
+  content: ' *';
+  color: red;
+}
+
+.mrgn_30{
+	margin-top: 30px;
+	margin-left: -10px;
+}
+.container{
+    max-width: 100% !important;
+}
+.custom-container {
+            background-color: lightblue;
+            padding: 20px;
+            border-radius: 8px;
+        }
+@media (max-width: 500px) {
+   .title2 h3{
+	   line-height: unset !important;
+	   font-size: unset;
+   }
+   .contain{
+	   margin-top: 0px !important;
+
+   }
+    .px-4{
+		padding-right:unset!important ;
+	}
+	.pdr{
+		margin-left: 21px;
+	}
+	.mrgn{
+	margin-left:10px;
+		margin-top:21px;
+		display:none;
+		font-site: 10px;
+	}
+	.govlog{
+	    display:none;
+	}
+}

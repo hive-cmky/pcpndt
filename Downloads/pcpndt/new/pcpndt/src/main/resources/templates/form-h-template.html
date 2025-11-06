@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Form H - PNDT Act Registry</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-container { max-width: 800px; margin: 0 auto; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+<div class="form-container">
+    <h1>Form H - PNDT Act Registry</h1>
+
+    <div th:if="${record}">
+        <table>
+            <tr><th>File Number</th><td th:text="${record.fileNumber}"></td></tr>
+            <tr><th>Applicant Name</th><td th:text="${record.applicantName}"></td></tr>
+            <tr><th>Facility Name</th><td th:text="${record.facilityName}"></td></tr>
+            <tr><th>Phone</th><td th:text="${record.phoneNumber}"></td></tr>
+            <tr><th>Application Type</th><td th:text="${record.applicationType}"></td></tr>
+            <tr><th>Outcome</th><td th:text="${record.outcome}"></td></tr>
+            <tr><th>Registration Number</th><td th:text="${record.registrationNumber}"></td></tr>
+        </table>
+    </div>
+
+    <div th:if="${error}" style="color: red;">
+        <h3 th:text="${error}"></h3>
+    </div>
+</div>
+</body>
+</html>

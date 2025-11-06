@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>All PC-PNDT Applications</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h4 class="mb-0">All PC-PNDT Applications</h4>
+        </div>
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <a href="/pcpndt/search" class="btn btn-primary">Search Applications</a>
+                <span class="text-muted" th:text="'Total: ' + ${applications.size()} + ' applications'"></span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                    <tr>
+                        <th>Reference No</th>
+                        <th>Applicant Name</th>
+                        <th>Centre Name</th>
+                        <th>Type</th>
+                        <th>Submission Date</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="app : ${applications}">
+                        <td>
+                            <span th:text="${app.applRefNo}" class="text-primary fw-bold"></span>
+                        </td>
+                        <td th:text="${app.applicantName}"></td>
+                        <td th:text="${app.nameOfCentre}"></td>
+                        <td th:text="${app.applicationType}"></td>
+                        <td th:text="${app.submissionDate}"></td>
+                        <td th:text="${app.submissionLocation}"></td>
+                        <td>
+                                    <span th:text="${app.applicationType}"
+                                          th:class="${app.applicationType == 'Registered (Form B Issued )'} ? 'badge bg-success' :
+                                                     ${app.applicationType == 'Renewal'} ? 'badge bg-warning' :
+                                                     ${app.applicationType == 'Applied (From B to be Issued)'} ? 'badge bg-info' :
+                                                     ${app.applicationType == 'Re- Apply'} ? 'badge bg-danger' : 'badge bg-secondary'">
+                                    </span>
+                        </td>
+                        <td>
+                            <a th:href="@{/pcpndt/application/{refNo}(refNo=${app.applRefNo})}"
+                               class="btn btn-info btn-sm">View Details</a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div th:if="${applications.empty}" class="alert alert-warning text-center">
+                <h5>No Applications Found</h5>
+                <p>No PC-PNDT applications are currently available in the system.</p>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
