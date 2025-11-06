@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PC & PNDT Applications</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .table-container {
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .status-badge {
+            font-size: 0.75em;
+        }
+        .table th {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="text-primary">
+                    <i class="fas fa-hospital me-2"></i>PC & PNDT Applications
+                </h1>
+                <div class="text-end">
+                    <div class="alert alert-success mb-0">
+                        <i class="fas fa-database me-1"></i>
+                        Total Applications: <strong th:text="${applications.size()}">0</strong>
+                    </div>
+                </div>
+            </div>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Applications Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Applications List
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-container">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead class="table-dark">
+                            <tr>
+                                <th>Application ID</th>
+                                <th>Reference No</th>
+                                <th>Applicant Name</th>
+                                <th>Clinic Name</th>
+                                <th>Service Type</th>
+                                <th>Submission Date</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <!-- Debug: Check if applications list is available -->
+                            <tr th:if="${applications == null}">
+                                <td colspan="9" class="text-center text-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    Applications list is null!
+                                </td>
+                            </tr>
+
+                            <tr th:if="${applications != null and applications.empty}">
+                                <td colspan="9" class="text-center text-warning">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    No applications found in the database.
+                                </td>
+                            </tr>
+
+                            <tr th:each="app : ${applications}" th:if="${applications != null and not applications.empty}">
+                                <td th:text="${app.appl_id}">-</td>
+                                <td th:text="${app.appl_ref_no}">-</td>
+                                <td th:text="${app.applicant_name}">-</td>
+                                <td th:text="${app.name_of_centre}">-</td>
+                                <td>
+                                    <span th:text="${app.application_type}">-</span>
+                                    <br>
+                                    <small class="text-muted" th:text="${app.service_name}">-</small>
+                                </td>
+                                <td th:text="${app.submission_date}">-</td>
+                                <td th:text="${app.submission_location}">-</td>
+                                <td>
+                                            <span th:if="${app.application_type != null and app.application_type.contains('Registered')}"
+                                                  class="badge bg-success status-badge">
+                                                <i class="fas fa-check me-1"></i>Registered
+                                            </span>
+                                    <span th:if="${app.application_type != null and app.application_type.contains('Applied')}"
+                                          class="badge bg-warning status-badge">
+                                                <i class="fas fa-clock me-1"></i>Applied
+                                            </span>
+                                    <span th:if="${app.application_type != null and app.application_type.contains('Renewal')}"
+                                          class="badge bg-info status-badge">
+                                                <i class="fas fa-sync me-1"></i>Renewal
+                                            </span>
+                                    <span th:if="${app.application_type == null or (!app.application_type.contains('Registered') and !app.application_type.contains('Applied') and !app.application_type.contains('Renewal'))}"
+                                          class="badge bg-secondary status-badge">
+                                                <i class="fas fa-question me-1"></i>
+                                                <span th:text="${app.application_type}">Unknown</span>
+                                            </span>
+                                </td>
+                                <td>
+                                    <a th:href="@{/application/{id}(id=${app.appl_id})}"
+                                       class="btn btn-primary btn-sm">
+                                        <i class="fas fa-eye me-1"></i>View
+                                    </a>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer with debug info -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Debug Information</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <strong>Template:</strong> applications.html<br>
+                                <strong>Data Count:</strong> <span th:text="${applications.size()}">0</span> applications<br>
+                                <strong>Timestamp:</strong> <span th:text="${#dates.format(#dates.createNow(), 'dd-MM-yyyy HH:mm:ss')}">-</span>
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <a href="/debug/applications" class="btn btn-outline-secondary btn-sm me-2">
+                                <i class="fas fa-bug me-1"></i>Debug Data
+                            </a>
+                            <a href="/debug/database" class="btn btn-outline-info btn-sm">
+                                <i class="fas fa-database me-1"></i>Database Check
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    console.log('Applications page loaded successfully');
+    console.log('Total applications:', [[${applications.size()}]]);
+
+    // Add some client-side debugging
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM fully loaded');
+
+        // Check if Thymeleaf processed the page
+        const applicationsCount = document.querySelector('[th\\:text="${applications.size()}"]');
+        if (applicationsCount) {
+            console.log('Thymeleaf is working');
+        } else {
+            console.log('Thymeleaf may not be processing the template');
+        }
+    });
+</script>
+</body>
+</html>
