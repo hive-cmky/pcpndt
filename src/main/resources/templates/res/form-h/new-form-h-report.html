@@ -1,0 +1,698 @@
+<!--<!DOCTYPE html>-->
+<!--<html xmlns:th="http://www.thymeleaf.org">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+<!--    <title>Form H - PNDT Act Registry</title>-->
+<!--    <style>-->
+<!--        body {-->
+<!--            font-family: 'Times New Roman', serif;-->
+<!--            margin: 0;-->
+<!--            padding: 20px;-->
+<!--            background-color: #f9f9f9;-->
+<!--            line-height: 1.4;-->
+<!--        }-->
+
+<!--        .form-container {-->
+<!--            max-width: 800px;-->
+<!--            margin: 0 auto;-->
+<!--            background: white;-->
+<!--            padding: 30px;-->
+<!--            box-shadow: 0 0 10px rgba(0,0,0,0.1);-->
+<!--            border: 1px solid #ccc;-->
+<!--        }-->
+
+<!--        .header {-->
+<!--            text-align: center;-->
+<!--            margin-bottom: 30px;-->
+<!--            border-bottom: 2px solid #333;-->
+<!--            padding-bottom: 10px;-->
+<!--        }-->
+
+<!--        .form-title {-->
+<!--            font-size: 18px;-->
+<!--            font-weight: bold;-->
+<!--            margin-bottom: 5px;-->
+<!--            text-transform: uppercase;-->
+<!--        }-->
+
+<!--        .form-subtitle {-->
+<!--            font-size: 14px;-->
+<!--            font-style: italic;-->
+<!--            margin-bottom: 10px;-->
+<!--        }-->
+
+<!--        .page-info {-->
+<!--            text-align: right;-->
+<!--            font-size: 12px;-->
+<!--            margin-bottom: 20px;-->
+<!--        }-->
+
+<!--        .form-table {-->
+<!--            width: 100%;-->
+<!--            border-collapse: collapse;-->
+<!--            margin-bottom: 30px;-->
+<!--        }-->
+
+<!--        .form-table th {-->
+<!--            background-color: #f0f0f0;-->
+<!--            border: 1px solid #333;-->
+<!--            padding: 8px;-->
+<!--            text-align: left;-->
+<!--            font-weight: bold;-->
+<!--            vertical-align: top;-->
+<!--            width: 20%;-->
+<!--        }-->
+
+<!--        .form-table td {-->
+<!--            border: 1px solid #333;-->
+<!--            padding: 8px;-->
+<!--            vertical-align: top;-->
+<!--            height: 40px;-->
+<!--        }-->
+
+<!--        .serial-no {-->
+<!--            width: 5%;-->
+<!--            text-align: center;-->
+<!--        }-->
+
+<!--        .footer {-->
+<!--            margin-top: 50px;-->
+<!--            text-align: right;-->
+<!--            border-top: 1px solid #333;-->
+<!--            padding-top: 20px;-->
+<!--        }-->
+
+<!--        .signature-line {-->
+<!--            margin-top: 60px;-->
+<!--            text-align: right;-->
+<!--        }-->
+
+<!--        .asterisk-note {-->
+<!--            font-size: 11px;-->
+<!--            margin-top: 5px;-->
+<!--            font-style: italic;-->
+<!--        }-->
+
+<!--        .data-field {-->
+<!--            min-height: 35px;-->
+<!--            padding: 5px;-->
+<!--        }-->
+
+<!--        /* Print styles */-->
+<!--        @media print {-->
+<!--            body {-->
+<!--                background: white;-->
+<!--                padding: 0;-->
+<!--            }-->
+<!--            .form-container {-->
+<!--                box-shadow: none;-->
+<!--                border: none;-->
+<!--                padding: 0;-->
+<!--            }-->
+<!--            .no-print {-->
+<!--                display: none;-->
+<!--            }-->
+<!--        }-->
+
+<!--        .back-button {-->
+<!--            margin-bottom: 20px;-->
+<!--        }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body>-->
+<!--<div class="no-print back-button">-->
+<!--    <a th:href="@{/new-search}" class="btn btn-secondary">← Back to Search</a>-->
+<!--</div>-->
+
+<!--<div class="form-container">-->
+<!--    &lt;!&ndash; Page Header &ndash;&gt;-->
+<!--    <div class="page-info">-->
+<!--        Page No. <span th:text="${pageNumber != null ? pageNumber : 1}">1</span>-->
+<!--    </div>-->
+
+<!--    <div class="header">-->
+<!--        <div class="form-title">Form - H</div>-->
+<!--        <div class="form-subtitle">-->
+<!--            [See Rule 9(5)]-->
+<!--        </div>-->
+<!--        <div style="font-size: 16px; font-weight: bold; margin-top: 10px;">-->
+<!--            FORM FOR MAINTENANCE OF PERMANENT RECORD OF APPLICATIONS FOR GRANT/REJECTION OF REGISTRATION<br>-->
+<!--            UNDER THE PRE-NATAL DIAGNOSTIC TECHNIQUES (REGULATION AND PREVENTION OF MISUSE) ACT, 1994-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Main Form Table &ndash;&gt;-->
+<!--    <table class="form-table">-->
+<!--        <tr>-->
+<!--            <th class="serial-no">1. Sl. No</th>-->
+<!--            <td class="serial-no" th:text="${record.serialNumber}">1</td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>2. File number of Appropriate Authority</th>-->
+<!--            <td class="data-field" th:text="${record.fileNumber}">-</td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>3. Date of receipt of application for grant of registration</th>-->
+<!--            <td class="data-field" th:text="${record.receiptDate}">24-06-2021 16:32:05</td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>4. Name, Address, Phone/Fax etc. of Applicant</th>-->
+<!--            <td class="data-field">-->
+<!--                <div><strong th:text="${record.applicantName}">RAGHAB PRASAD PANDA</strong></div>-->
+<!--                <div th:text="${record.applicantAddress}">101, District Center, Ground And First Floor, Chandrasekharpur, Bhubaneswar.</div>-->
+<!--                <div th:if="${record.phoneNumber != null and record.phoneNumber != 'NA'}" th:text="${'Phone: ' + record.phoneNumber}">Phone: 7008990586</div>-->
+<!--                <div th:if="${record.email != null and record.email != 'NA'}" th:text="${'Email: ' + record.email}">Email: BBSR@SANTAAN.IN</div>-->
+<!--                <div th:if="${record.fax != null and record.fax != 'NA'}" th:text="${'Fax: ' + record.fax}">Fax: NA</div>-->
+<!--                <div th:if="${record.applicantDetails != null}" th:text="${record.applicantDetails}">Applied by: SANTAAN FERTILITY CENTER</div>-->
+<!--            </td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>-->
+<!--                5. Name and address(es) of Genetic Counselling Centre* /-->
+<!--                Genetic Laboratory* / Genetic Clinic* / Ultrasound Clinic* /-->
+<!--                Imaging Centre*-->
+<!--                <div class="asterisk-note">*Strike out whichever is not applicable</div>-->
+<!--            </th>-->
+<!--            <td class="data-field">-->
+<!--                <div><strong th:text="${record.facilityName}">SANTAAN FERTILITY CENTER AND RESEARCH INSTITUTE</strong></div>-->
+<!--                <div th:text="${record.facilityAddress}">Plot No.-101, Ground And 1st Floor, District Centre, Chandrasekharpur, Bhubaneswar</div>-->
+<!--                <div th:if="${record.facilityType != null}" th:text="${'Type: ' + record.facilityType}">Type: Ultrasound Clinic</div>-->
+<!--                <div th:if="${record.district != null}" th:text="${'District: ' + record.district}">District: BHUBANESWAR</div>-->
+<!--            </td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>-->
+<!--                6. Date of consideration by Advisory Committee and-->
+<!--                recommendation of Advisory Committee, in summary-->
+<!--            </th>-->
+<!--            <td class="data-field">-->
+<!--                <div th:if="${record.advisoryCommitteeDate != null and record.advisoryCommitteeDate != 'NA'}">-->
+<!--                    <strong>Date: </strong><span th:text="${record.advisoryCommitteeDate}">-</span>-->
+<!--                </div>-->
+<!--                <div th:if="${record.recommendationSummary != null and record.recommendationSummary != 'NA'}" style="margin-top: 10px;">-->
+<!--                    <strong>Recommendation Summary:</strong><br>-->
+<!--                    <span th:text="${record.recommendationSummary}">-</span>-->
+<!--                </div>-->
+<!--                <div th:if="${record.advisorySummary != null and record.advisorySummary != 'NA'}" style="margin-top: 10px;">-->
+<!--                    <strong>Advisory Summary:</strong><br>-->
+<!--                    <span th:text="${record.advisorySummary}">-</span>-->
+<!--                </div>-->
+<!--                <div th:if="${(record.advisoryCommitteeDate == null or record.advisoryCommitteeDate == 'NA') and (record.recommendationSummary == null or record.recommendationSummary == 'NA')}">-</div>-->
+<!--            </td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>-->
+<!--                7. Outcome of application (state granted/rejected and date of-->
+<!--                issue of orders - record date of issue of order in Form B or Form C)-->
+<!--            </th>-->
+<!--            <td class="data-field">-->
+<!--                <div th:if="${record.outcome != null}">-->
+<!--                    <strong>Status: </strong><span th:text="${record.outcome}">Granted</span>-->
+<!--                </div>-->
+<!--                <div th:if="${record.orderDate != null and record.orderDate != 'NA'}">-->
+<!--                    <strong>Order Date: </strong><span th:text="${record.orderDate}">14-09-2021 11:24:16</span>-->
+<!--                </div>-->
+<!--                <div th:if="${record.formType != null and record.formType != 'NA'}">-->
+<!--                    <strong>Form Type: </strong><span th:text="${record.formType}">Form B</span>-->
+<!--                </div>-->
+<!--            </td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>8. Registration number allotted and date of expiry of registration</th>-->
+<!--            <td class="data-field">-->
+<!--                <div th:if="${record.registrationNumber != null}">-->
+<!--                    <strong>Registration No: </strong><span th:text="${record.registrationNumber}">KDR-196/2016-PCPNDT/2021/00105</span>-->
+<!--                </div>-->
+<!--                <div th:if="${record.expiryDate != null and record.expiryDate != 'NA'}">-->
+<!--                    <strong>Expiry Date: </strong><span th:text="${record.expiryDate}">09/08/2026</span>-->
+<!--                </div>-->
+<!--            </td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>9. Renewals (date of renewal and renewed upto)</th>-->
+<!--            <td class="data-field">-->
+<!--                <div th:if="${record.renewalDetails != null and record.renewalDetails != 'NA'}" th:text="${record.renewalDetails}">NA</div>-->
+<!--                <div th:if="${record.renewalDetails == null or record.renewalDetails == 'NA'}">-</div>-->
+<!--            </td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>10. File number in which renewals dealt</th>-->
+<!--            <td class="data-field">-->
+<!--                <span th:if="${record.renewalFileNumber != null and record.renewalFileNumber != 'NA'}" th:text="${record.renewalFileNumber}">NA</span>-->
+<!--                <span th:if="${record.renewalFileNumber == null or record.renewalFileNumber == 'NA'}">-</span>-->
+<!--            </td>-->
+<!--        </tr>-->
+
+<!--        <tr>-->
+<!--            <th>11. Additional information, if any</th>-->
+<!--            <td class="data-field" th:text="${record.additionalInfo != null ? record.additionalInfo : '-'}">DAC Approval 16.08.2021 SL No-SL No-2(e) & Inspection report of CDMO,Khordha Form-B is Issued</td>-->
+<!--        </tr>-->
+<!--    </table>-->
+
+<!--    &lt;!&ndash; Footer and Signature &ndash;&gt;-->
+<!--    <div class="footer">-->
+<!--        <div class="page-info">-->
+<!--            Page No. <span th:text="${pageNumber != null ? pageNumber : 1}">1</span>-->
+<!--        </div>-->
+
+<!--        <div class="signature-line">-->
+<!--            <div>Name, Designation & Signature of Appropriate Authority</div>-->
+<!--            <div style="margin-top: 80px; border-top: 1px solid #333; width: 300px; margin-left: auto;">-->
+<!--                <div style="text-align: center; padding-top: 5px;">-->
+<!--                    <span th:text="${authorityName}">Dr. S. K. Sharma</span><br>-->
+<!--                    <span th:text="${authorityDesignation}">Chief District Medical Officer</span>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+<!--</div>-->
+
+<!--&lt;!&ndash; Print Button (hidden during print) &ndash;&gt;-->
+<!--<div class="no-print" style="text-align: center; margin-top: 20px;">-->
+<!--    <button onclick="window.print()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">-->
+<!--        Print Form-->
+<!--    </button>-->
+<!--</div>-->
+<!--</body>-->
+<!--</html>-->
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form H - PNDT Act Registry</title>
+    <style>
+        /* ===== BEAUTIFUL SCREEN VIEW ===== */
+        @media screen {
+            body {
+                font-family: 'Times New Roman', serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f9f9f9;
+                line-height: 1.4;
+                font-size: 14px;
+            }
+
+            .form-container {
+                max-width: 800px;
+                margin: 0 auto;
+                background: white;
+                padding: 30px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                border: 1px solid #ccc;
+            }
+
+            .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #333;
+                padding-bottom: 10px;
+            }
+
+            .form-title {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 5px;
+                text-transform: uppercase;
+            }
+
+            .form-subtitle {
+                font-size: 14px;
+                font-style: italic;
+                margin-bottom: 10px;
+            }
+
+            .main-title {
+                font-size: 16px;
+                font-weight: bold;
+                margin-top: 10px;
+                line-height: 1.4;
+            }
+
+            .page-info {
+                text-align: right;
+                font-size: 12px;
+                margin-bottom: 20px;
+            }
+
+            .form-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 30px;
+                font-size: 13px;
+            }
+
+            .form-table th {
+                background-color: #f0f0f0;
+                border: 1px solid #333;
+                padding: 8px;
+                text-align: left;
+                font-weight: bold;
+                vertical-align: top;
+                width: 20%;
+            }
+
+            .form-table td {
+                border: 1px solid #333;
+                padding: 8px;
+                vertical-align: top;
+                height: 40px;
+            }
+
+            .serial-no {
+                width: 5%;
+                text-align: center;
+            }
+
+            .footer {
+                margin-top: 50px;
+                text-align: right;
+                border-top: 1px solid #333;
+                padding-top: 20px;
+            }
+
+            .signature-line {
+                margin-top: 60px;
+                text-align: right;
+            }
+
+            .asterisk-note {
+                font-size: 11px;
+                margin-top: 5px;
+                font-style: italic;
+            }
+
+            .data-field {
+                min-height: 35px;
+                padding: 5px;
+            }
+
+            .back-button {
+                margin-bottom: 20px;
+            }
+
+            .compact-data div {
+                margin-bottom: 4px;
+            }
+        }
+
+        /* ===== COMPACT PRINT/PDF VIEW ===== */
+        @media print {
+            @page {
+                size: A4;
+                margin: 0.5cm;
+            }
+
+            body {
+                font-family: 'Times New Roman', serif;
+                margin: 0;
+                padding: 15px;
+                background-color: white;
+                line-height: 1.2;
+                font-size: 12px;
+            }
+
+            .form-container {
+                width: 100%;
+                height: auto;
+                min-height: 27.7cm;
+                background: white;
+                padding: 20px;
+                box-sizing: border-box;
+                box-shadow: none;
+                border: none;
+                margin: 0;
+            }
+
+            .header {
+                text-align: center;
+                margin-bottom: 20px;
+                border-bottom: 1px solid #333;
+                padding-bottom: 8px;
+            }
+
+            .form-title {
+                font-size: 14px;
+                font-weight: bold;
+                margin-bottom: 3px;
+                text-transform: uppercase;
+            }
+
+            .form-subtitle {
+                font-size: 11px;
+                font-style: italic;
+                margin-bottom: 5px;
+            }
+
+            .main-title {
+                font-size: 13px;
+                font-weight: bold;
+                margin-top: 5px;
+                line-height: 1.3;
+            }
+
+            .page-info {
+                text-align: right;
+                font-size: 10px;
+                margin-bottom: 15px;
+            }
+
+            .form-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+                font-size: 11px;
+            }
+
+            .form-table th {
+                background-color: #f8f8f8;
+                border: 1px solid #333;
+                padding: 5px;
+                text-align: left;
+                font-weight: bold;
+                vertical-align: top;
+                width: 22%;
+            }
+
+            .form-table td {
+                border: 1px solid #333;
+                padding: 5px;
+                vertical-align: top;
+                height: 32px;
+            }
+
+            .serial-no {
+                width: 4%;
+                text-align: center;
+            }
+
+            .footer {
+                margin-top: 30px;
+                text-align: right;
+                border-top: 1px solid #333;
+                padding-top: 15px;
+            }
+
+            .signature-line {
+                margin-top: 40px;
+                text-align: right;
+            }
+
+            .asterisk-note {
+                font-size: 9px;
+                margin-top: 2px;
+                font-style: italic;
+            }
+
+            .data-field {
+                min-height: 28px;
+                padding: 3px;
+            }
+
+            .compact-data div {
+                margin-bottom: 2px;
+            }
+
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="no-print back-button">
+    <a th:href="@{/new-search}" class="btn btn-secondary">← Back to Search</a>
+</div>
+
+<div class="form-container">
+    <div style="text-align: center; margin-bottom: 10px;"><img th:src="@{/images/Flag_of_Odisha.svg.png}" alt="Logo" style="height: 60px;"></div>
+    <!-- Page Header -->
+    <div class="page-info">
+        Page No. <span th:text="${pageNumber != null ? pageNumber : 1}">1</span>
+    </div>
+
+    <div class="header">
+        <div class="form-title">Form - H</div>
+        <div class="form-subtitle">
+            [See Rule 9(5)]
+        </div>
+        <div class="main-title">
+            FORM FOR MAINTENANCE OF PERMANENT RECORD OF APPLICATIONS FOR GRANT/REJECTION OF REGISTRATION<br>
+            UNDER THE PRE-NATAL DIAGNOSTIC TECHNIQUES (REGULATION AND PREVENTION OF MISUSE) ACT, 1994
+        </div>
+    </div>
+
+    <!-- Main Form Table -->
+    <table class="form-table">
+        <tr>
+            <th class="serial-no">1. Sl. No</th>
+            <td class="serial-no" th:text="${record.serialNumber}">1</td>
+        </tr>
+
+        <tr>
+            <th>2. File number of Appropriate Authority</th>
+            <td class="data-field" th:text="${record.fileNumber}">-</td>
+        </tr>
+
+        <tr>
+            <th>3. Date of receipt of application for grant of registration</th>
+            <td class="data-field" th:text="${record.receiptDate}">24-06-2021 16:32:05</td>
+        </tr>
+
+        <tr>
+            <th>4. Name, Address, Phone/Fax etc. of Applicant</th>
+            <td class="data-field compact-data">
+                <div><strong th:text="${record.applicantName}">RAGHAB PRASAD PANDA</strong></div>
+                <div th:text="${record.applicantAddress}">101, District Center, Ground And First Floor, Chandrasekharpur, Bhubaneswar.</div>
+                <div th:if="${record.phoneNumber != null and record.phoneNumber != 'NA'}" th:text="${'Phone: ' + record.phoneNumber}">Phone: 7008990586</div>
+                <div th:if="${record.email != null and record.email != 'NA'}" th:text="${'Email: ' + record.email}">Email: BBSR@SANTAAN.IN</div>
+                <div th:if="${record.fax != null and record.fax != 'NA'}" th:text="${'Fax: ' + record.fax}">Fax: NA</div>
+                <div th:if="${record.applicantDetails != null}" th:text="${record.applicantDetails}">Applied by: SANTAAN FERTILITY CENTER</div>
+            </td>
+        </tr>
+
+        <tr>
+            <th>
+                5. Name and address(es) of Genetic Counselling Centre* /
+                Genetic Laboratory* / Genetic Clinic* / Ultrasound Clinic* /
+                Imaging Centre*
+                <div class="asterisk-note">*Strike out whichever is not applicable</div>
+            </th>
+            <td class="data-field compact-data">
+                <div><strong th:text="${record.facilityName}">SANTAAN FERTILITY CENTER AND RESEARCH INSTITUTE</strong></div>
+                <div th:text="${record.facilityAddress}">Plot No.-101, Ground And 1st Floor, District Centre, Chandrasekharpur, Bhubaneswar</div>
+                <div th:if="${record.facilityType != null}" th:text="${'Type: ' + record.facilityType}">Type: Ultrasound Clinic</div>
+                <div th:if="${record.district != null}" th:text="${'District: ' + record.district}">District: BHUBANESWAR</div>
+            </td>
+        </tr>
+
+        <tr>
+            <th>
+                6. Date of consideration by Advisory Committee and
+                recommendation of Advisory Committee, in summary
+            </th>
+            <td class="data-field">
+                <div th:if="${record.advisoryCommitteeDate != null and record.advisoryCommitteeDate != 'NA'}">
+                    <strong>Date: </strong><span th:text="${record.advisoryCommitteeDate}">-</span>
+                </div>
+                <div th:if="${record.recommendationSummary != null and record.recommendationSummary != 'NA'}" style="margin-top: 5px;">
+                    <strong>Recommendation Summary:</strong><br>
+                    <span th:text="${record.recommendationSummary}">-</span>
+                </div>
+                <div th:if="${record.advisorySummary != null and record.advisorySummary != 'NA'}" style="margin-top: 5px;">
+                    <strong>Advisory Summary:</strong><br>
+                    <span th:text="${record.advisorySummary}">-</span>
+                </div>
+                <div th:if="${(record.advisoryCommitteeDate == null or record.advisoryCommitteeDate == 'NA') and (record.recommendationSummary == null or record.recommendationSummary == 'NA')}">-</div>
+            </td>
+        </tr>
+
+        <tr>
+            <th>
+                7. Outcome of application (state granted/rejected and date of
+                issue of orders - record date of issue of order in Form B or Form C)
+            </th>
+            <td class="data-field compact-data">
+                <div th:if="${record.outcome != null}">
+                    <strong>Status: </strong><span th:text="${record.outcome}">Granted</span>
+                </div>
+                <div th:if="${record.orderDate != null and record.orderDate != 'NA'}">
+                    <strong>Order Date: </strong><span th:text="${record.orderDate}">14-09-2021 11:24:16</span>
+                </div>
+                <div th:if="${record.formType != null and record.formType != 'NA'}">
+                    <strong>Form Type: </strong><span th:text="${record.formType}">Form B</span>
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <th>8. Registration number allotted and date of expiry of registration</th>
+            <td class="data-field compact-data">
+                <div th:if="${record.registrationNumber != null}">
+                    <strong>Registration No: </strong><span th:text="${record.registrationNumber}">KDR-196/2016-PCPNDT/2021/00105</span>
+                </div>
+                <div th:if="${record.expiryDate != null and record.expiryDate != 'NA'}">
+                    <strong>Expiry Date: </strong><span th:text="${record.expiryDate}">09/08/2026</span>
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <th>9. Renewals (date of renewal and renewed upto)</th>
+            <td class="data-field">
+                <div th:if="${record.renewalDetails != null and record.renewalDetails != 'NA'}" th:text="${record.renewalDetails}">NA</div>
+                <div th:if="${record.renewalDetails == null or record.renewalDetails == 'NA'}">-</div>
+            </td>
+        </tr>
+
+        <tr>
+            <th>10. File number in which renewals dealt</th>
+            <td class="data-field">
+                <span th:if="${record.renewalFileNumber != null and record.renewalFileNumber != 'NA'}" th:text="${record.renewalFileNumber}">NA</span>
+                <span th:if="${record.renewalFileNumber == null or record.renewalFileNumber == 'NA'}">-</span>
+            </td>
+        </tr>
+
+        <tr>
+            <th>11. Additional information, if any</th>
+            <td class="data-field" th:text="${record.additionalInfo != null ? record.additionalInfo : '-'}">DAC Approval 16.08.2021 SL No-SL No-2(e) & Inspection report of CDMO,Khordha Form-B is Issued</td>
+        </tr>
+    </table>
+
+    <!-- Footer and Signature -->
+    <div class="footer">
+        <div class="page-info">
+            Page No. <span th:text="${pageNumber != null ? pageNumber : 1}">1</span>
+        </div>
+
+        <div class="signature-line">
+            <div>Name, Designation & Signature of Appropriate Authority</div>
+            <div style="margin-top: 50px; border-top: 1px solid #333; width: 250px; margin-left: auto;">
+                <div style="text-align: center; padding-top: 3px; font-size: 11px;">
+                    <span th:text="${authorityName}">Dr. S. K. Sharma</span><br>
+                    <span th:text="${authorityDesignation}">Chief District Medical Officer</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Button (hidden during print) -->
+<div class="no-print" style="text-align: center; margin-top: 15px;">
+    <button onclick="window.print()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">
+        Print Form
+    </button>
+</div>
+</body>
+</html>
